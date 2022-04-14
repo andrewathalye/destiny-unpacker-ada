@@ -1,0 +1,12 @@
+with "external_linoodle.gpr";
+
+project Destiny_Unpacker is
+	for Source_Dirs use ("src");
+	for Main use ("main.adb");
+	for Object_Dir use "obj";
+	for Exec_Dir use ".";
+
+	package Builder is
+		for Executable ("main.adb") use "destinyunpacker";
+	end Builder;
+end Destiny_Unpacker;
