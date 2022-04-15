@@ -1,0 +1,8 @@
+pkgID: 0199
+patchID: 0000
+buildID: E651 0000
+entryTableSize: 0279 0000
+entryTableOffset: 1800 0000
+blockTableSize: 0FF7 0000
+blockTableOffset: 4000 0000
+actualEntryTableOffset: 0000 0000 0000 0000 + 96

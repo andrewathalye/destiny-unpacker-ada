@@ -1,5 +1,4 @@
 with OpenSSL; use OpenSSL;
-with Interfaces; use Interfaces;
 
 with Unpacker; use Unpacker;
 package body Unpacker.Crypto is

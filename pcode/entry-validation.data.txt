@@ -1,0 +1,13 @@
+A 3199239168 B 106976384 C 303034624 D 20971532
+ref = A = 3199239168
+numType = (B >> 9) & 0x7F = 42
+numSubType = (B >> 6) & 0x7 = 2
+startingBlock = C & 0x3FFF = 12544
+startingBlockOffset = ((C >> 14) & 0x3FFF) << 4 = 33776
+fileSize = (D & 0x3FFFFFF) << 4 | (entryC >> 28) & 0xF = 335544513
+
+Checking veracity of location finding code:
+A : 9802 8080
+B : 101c 0000
+C : 0000 4000
+D : 0005 0000
