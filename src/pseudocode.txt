@@ -1,0 +1,246 @@
+Type, Packages folder, output folder
+Iterate on packages folder
+
+for each package:
+Read Header
+Modify Nonce
+Get Entries
+Get Blocks
+Extract Files
+
+Extract Files:
+	if preBL
+		wemtype is 26
+			wemSubType is 6
+		bnkType is 26
+			bnkSubType is 5
+			bnkSubType2 is 5
+	if d1
+		wemtype is 8
+			wemSubType is 21
+		bnkType is 0
+			bnkSubType is 19
+			bnkSubType2 is 20
+	if postBL
+		wemType is 26
+			wemSubType is 7
+		bnkType is 26
+			bnkSubType is 6
+			bnkSubType2 is 6
+
+	For each entry in package,
+		if type is wem and subtype is wemsubtype then
+			File Buffer is generic_extract (entry, pkgStreamPaths)
+			Write wem/nameID.wem
+		if type is bnk and subtype is bnkSubType or bnkSubType2
+			File Buffer is generic_extract (entry, pkgPatchStreamPaths)
+			Output to bnk/pkgID (hex) - entry (hex) .bnk
+
+Generic Extract:
+	currentblockid = entry.startingblock
+	blockcount = floor(entry.startingblockoffset + entry.filesize - 1) / BLOCK_SIZE); -- BS = 16#40000#;
+	lastblock = currentblockid + blockcount
+	file buffer is allocate entry.filesize
+	while current block less than last block
+		currentblock = blocks.get(currentblockid);
+		open file corresponding to currentblock.patchid
+		seek to currentblock.offset
+		allocate buffer (currentblock.size)
+		read from file to blockbuffer
+		allocate decompbuffer = block size
+		allocate decryptbuffer = currentblock.size
+
+		if d1
+			if Bit_Flag & 0x1
+				decompressBlock (currentBlock, blockBuffer, decompBuffer);
+			else
+				decompBuffer = blockBuffer;
+		else
+			if Bit_Flag & 0x2
+				decryptBlock (currentBlock, blockBuffer, decryptBuffer);
+			else
+				decryptBuffer = blockBuffer;
+			if Bit_Flag & 0x1
+				decompressBlock (currentBlock, decryptBuffer, decompBuffer);
+			else
+				decompBuffer = decryptBuffer;
+
+		if currentblockid = entry.startingblock
+			if currentblockid = lastblockid
+				cpySize = entry.fileSize
+			else
+				cpySize = BLOCK_SIZE - entry.startingblockoffset
+			memcpy (filebuffer, decompbuffer + entry.startingblockoffset, cpysize);
+			currentbufferoffset += cpysize;
+		else if currentblockid = lastblockid
+			memcpy (filebuffer + currentbufferoffset, decompbuffer, entry.filesize - currentbufferoffset);
+		else
+			memcpy (filebuffer + currentbufferoffset, decompbuffer, block_size);
+			currentbufferoffset := currentbufferoffset + BLOCK_SIZE
+
+		close file
+		currentBlockID++
+		deallocate decompbuffer decryptbuffer blockbuffer
+
+Modify Nonce:
+	if Mode = Pre_BL then
+		Pre_Bl_Nonce (1) := Pre_BL_Nonce (1) ^ ((Package_ID >> 8) & 16#FF#);
+		Pre_BL_Nonce (2) := Pre_BL_Nonce (2) ^ 16#26#;
+		Pre_BL_Nonce (12) := Pre_BL_Nonce (12) ^ (Package_ID & 16#FF#);
+	else
+		Post_Bl_Nonce (1) := Post_BL_Nonce (1) ^ ((Package_ID >> 8) & 16#FF#);
+		Post_Bl_Nonce (12) := Post_BL_Nonce (12) ^ (Package_ID & 16#FF#);
+	end if;
+
+Header Type:
+	u16 pkgID
+	u16 patchID
+	u32 entryTableOffset
+	u32 entryTableSize
+	u32 blockTableOffset
+	u32 blockTableSize
+
+	type D1_Pre_BL_Header is record
+		Discard_1 : array (0 .. 3) of Unsigned_8;
+		Package_ID : Unsigned_16; -- HEX 4 to 5
+		Discard_2 : array (6 .. 16#17# ) of Unsigned_8;
+		Build_ID : Unsigned_32; -- HEX 18 to 1B
+		Discard_3 : array  (16#1C# .. 16#1F#) of Unsigned_8;
+		Patch_ID : Unsigned_16; -- HEX 20 to 21
+		Discard_4 : array (16#22# .. 16#B4#) of Unsigned_8;
+		Entry_Table_Size : Unsigned_32; -- HEX B4 to B7
+		Entry_Table_Offset : Unsigned_32; -- HEX B8 to BB NOT ALWAYS
+		Discard_5 : array (16#BC# .. 16#CF#) of Unsigned_8;
+		Block_Table_Size : Unsigned_32; -- HEX D0 to D3
+		Block_Table_Offset : Unsigned_32; -- HEX D4 to D7 NOT ALWAYS
+		Discard_6 : array (16#D8# .. 16#10F#) of Unsigned_8;
+		Alternate_Entry_Table_Offset : Unsigned_32; -- HEX 110 to 113
+	end record;
+
+	type Post_BL_Header is record
+		Discard_1 : array (0 .. 16#0F#) of Unsigned_8;
+		Package_ID : Unsigned_16; -- HEX 10 to 11
+		Discard_2 : array (16#12# .. 16#2F#) of Unsigned_8;
+		Patch_ID : Unsigned_16; -- HEX 30 to 31
+		Discard_3 : array (16#32# .. 16#43#) of Unsigned_8;
+		Entry_Table_Offset : Unsigned_32; -- HEX 44 to 47
+		Discard_4 : array (16#48# .. 16#5F#) of Unsigned_8;
+		Entry_Table_Size : Unsigned_32; -- HEX 60 to 63
+		Discard_5 : array (16#64# .. 16#67#) of Unsigned_8;
+		Block_Table_Size : Unsigned_32; -- HEX 68 to 6B
+		Block_Table_Offset : Unsigned_32; -- HEX 6C to 6F
+	end record;
+
+Header Checks:
+	if buildID > 0x10000 then -- Forsaken and Later
+		Entry_Table_Offset := Alternate_Entry_Table_Offset + 96;
+		Block_Table_Offset := Entry_Table_Offset + Entry_Table_Size * 16 + 32;
+	end if;
+
+Entry Type
+	uint32_t reference
+	u8 numType
+	u8 numSubType
+	u32 startingBlock
+	u32 startingBlockOffset
+	u32 fileSize
+
+	type Entry is record
+		Reference : Unsigned_32;
+		Entry_Type : Unsigned_8;
+		Entry_Subtype : Unsigned_8;
+		Starting_Block : Unsigned_32;
+		Starting_Block_Offset : Unsigned_32;
+		File_Size : Unsigned_32;
+	end record;
+
+	type Raw_Entry is record
+		A : Unsigned_32;
+		B : Unsigned_32;
+		C : Unsigned_32;
+		D : Unsigned_32;
+	end record;
+
+Read Entry
+	E : Entry;
+	R : Raw_Entry;
+
+	I := Entry_Table_Offset;
+	while I < Entry_Table_Offset + Entry_Table_Size * 16 loop
+		Seek_Stream (S, I);
+		Raw_Entry'Read (S, R);
+		E.Reference := R.A;
+
+		if Mode = D1 then
+			E.Entry_Type := R.B & 16#FFFF#;
+			E.Entry_Subtype := E.B >> 24;
+		else
+			E.Entry_Type := (R.B >> 9) & 16#7F#;
+			E.Entry_Subtype := (R.B >> 6) & 0x7;
+		end if;
+
+		E.Starting_Block := R.C & 16#3FFF#;
+		E.Starting_Block_Offset := ((R.C >> 14) & 16#3FFF#) << 4;
+
+		E.File_Size := (R.D & 16#3FFFFFF#) << 4 | (R.C >> 28) & 16#F#;
+
+		Add (V, E); -- Add Entry to linked list
+	end loop;
+
+Block Type
+	u32 ID
+	u32 offset
+	u32 size
+	u16 patchID
+	u16 bitFlag
+	u8 gcmTag (1 .. 16)
+	
+	type Generic_Block is record
+		Offset : Unsigned_32; -- HEX 0 .. 3
+		Size : Unsigned_32; -- HEX 4 .. 7
+		Patch_ID : Unsigned_16; -- HEX 8 .. 9
+		Bit_Flag : Unsigned_16; -- HEX A .. B
+		GCM : array (1 .. 16) of Unsigned_8;
+	end record;
+
+	type Block is record
+		G : Generic_Block;
+		GCM : array (1 .. 16) of Unsigned_8;
+	end record;
+
+	type GCM_Pre_BL is record
+		Discard : array ( 16#C# .. 16#21# ) of Unsigned_8; -- TODO: Check my math	
+		GCM : array (1 .. 16) of Unsigned_8;
+	end record;
+
+	type GCM_Post_BL is record
+		Discard : array ( 16#C# .. 16#1F# ) of Unsigned_8;
+		GCM : array (1 .. 16) of Unsigned_8;
+	end record;
+
+Read Block
+	declare
+		I : Integer := Block_Table_Offset;
+		B : Block;
+		GPRB : GCM_Pre_BL;
+		GPOB : GCM_Post_BL;
+		SIZE : Integer := (if Mode = D1 then 32 else 48); -- D1 has no GCM tag
+	begin
+		while I < Block_Table_Offset + Block_Table_Size * SIZE loop
+			Stream_Seek (S, I); -- Seek to byte I
+			Generic_Block'Read (S, B.G); -- Read without GCM
+
+			-- Acquire GCM Tag
+			if Mode = Pre_BL then
+				GCM_Pre_BL'Read (S, GPRB);
+				B.GCM := GPRB.GCM;
+			elsif Mode = Post_BL then
+				GCM_Post_BL'Read (S, GPOB);
+				B.GCM := GPOB.GCM;
+			end if;
+
+			Add (V, B); -- Add block to linked list
+
+			I := I + SIZE;
+		end loop;
+	end;
