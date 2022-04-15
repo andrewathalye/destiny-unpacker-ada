@@ -1,3 +1,6 @@
+with Unpacker.Worker; use Unpacker.Worker;
+
 package Unpacker.Crypto is
-	procedure Dummy;
+	-- Modify nonce based upon package header contents
+	procedure Modify_Nonce (H : Header);
 end Unpacker.Crypto;

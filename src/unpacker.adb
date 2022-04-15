@@ -15,7 +15,7 @@ package body Unpacker is
 		Invalid_Arguments : exception;
 
 	begin
-		Put_Line ("Destiny Linux Unpacker v0.1");
+		Put_Line ("Destiny Linux Unpacker v0.2");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then
@@ -43,13 +43,15 @@ package body Unpacker is
 			end if;
 
 			-- Iterate over pkg files
-			Start_Search (SE, Output_Dir, "*.pkg");
+			Start_Search (SE, Package_Dir, "*.pkg");
 			while More_Entries (SE) loop
 				Get_Next_Entry (SE, D);
+				Put_Line ("[Debug] " & Simple_Name (D)); -- TODO Debug
 				Open (F, In_File, Full_Name (D));
 				SA := Stream (F);
 				Unpack (Stream => SA, File => F, Output_Dir => Output_Dir);
 				Close (F);
+				return; -- TODO Debug
 			end loop;
 			End_Search (SE);
 		end;
