@@ -55,7 +55,7 @@ package body Unpacker is
 				Put_Line ("[Debug] " & Simple_Name (D)); -- TODO Debug
 				Open (F, In_File, Full_Name (D));
 				SA := Stream (F);
-				Unpack (Stream => SA, File => F, Output_Dir => Output_Dir);
+				Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);
 				Close (F);
 				return; -- TODO Debug with one file at once
 			end loop;

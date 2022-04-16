@@ -1,37 +1,19 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams.Stream_IO; use Ada.Streams; use Ada.Streams.Stream_IO;
-with Ada.Containers.Vectors;
+with Interfaces.C; use Interfaces.C;
 
 with linoodle; use linoodle;
 
 with Unpacker.Crypto; use Unpacker.Crypto;
+with Unpacker.Package_File; use Unpacker.Package_File;
+
+with Unchecked_Deallocation;
 
 package body Unpacker.Worker is
-	-- Local Types
-	-- Entry Normalised Type
-	-- Cannot be read from Stream
-	type Entry_Type is record
-		Reference : Unsigned_32;
-		Entry_Type : Unsigned_8;
-		Entry_Subtype : Unsigned_8;
-		Starting_Block : Unsigned_32;
-		Starting_Block_Offset : Unsigned_32;
-		File_Size : Unsigned_32;
-	end record;
-
-	-- Block Normalised Type
-	-- Cannot be read from Stream
-	type Block is record
-		Offset : Unsigned_32;
-		Size : Unsigned_32;
-		Patch_ID : Unsigned_16;
-		Bit_Flag : Unsigned_16;
-		GCM : GCM_Tag;
-	end record;
-
-	-- Vector types for unknown-size collections
-	package Entry_Vectors is new Ada.Containers.Vectors ( Index_Type => Natural, Element_Type => Entry_Type);	
-	package Block_Vectors is new Ada.Containers.Vectors ( Index_Type => Natural, Element_Type => Block);
+	-- Common Buffer Type
+	type Data_Array is array (Natural range <>) of Unsigned_8;
+	type Data_Array_Access is access Data_Array;
+	procedure Free is new Unchecked_Deallocation (Object => Data_Array, Name => Data_Array_Access);
 
 	-- Modular I/O types
 	package Unsigned_16_IO is new Modular_IO (Num => Unsigned_16);
@@ -67,8 +49,97 @@ package body Unpacker.Worker is
 		return O;
 	end Hex_String;
 
-	-- Extract TODO implement
-	procedure Extract (S : Stream_Access; F : Stream_IO.File_Type; EV : in Entry_Vectors.Vector; BV : in Block_Vectors.Vector; H : in Header) is
+	-- Determine file with same Package ID and different patch ID
+	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID) & ".pkg"); 
+
+	-- Read data from entry into buffer
+	function Extract_Entry (File_Name : String; E : in Entry_Type; BV : in Block_Vectors.Vector) return Data_Array_Access is
+		-- Constants
+		-- TODO: Need floor function?
+		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
+		Block_Count : constant Unsigned_32 := Unsigned_32 ((E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE );
+		Last_Block_ID : Unsigned_32 := E.Starting_Block_Offset + Block_Count;
+
+		-- Variables
+		Data_B : Data_Array_Access (1 .. Natural (E.File_Size)) := new Data_Array (1 .. Natural (E.File_Size));
+		Current_Block_ID : Unsigned_32 := E.Starting_Block;
+		Current_Block : Block;
+		Discard_Size : size_t := 0;
+
+		-- File and Stream
+		In_F : Stream_IO.File_Type; -- Input File
+		In_S : Stream_Access; -- Input Stream
+
+		-- Buffers
+		Decompress_B : aliased Data_Array (1 .. Positive (BLOCK_SIZE));Current_Buffer_Offset : Natural := 0;
+	begin
+		while Current_Block_ID < Last_Block_ID loop -- TODO Implement	
+			Current_Block := Block_Vectors.Element (BV, Natural (Current_Block_ID));
+			declare
+				Block_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
+				Decrypt_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
+			begin
+				Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
+				In_S := Stream (In_F);
+				Set_Index (In_F, Stream_IO.Positive_Count (Current_Block.Offset + 1));
+				Data_Array'Read (In_S, Block_B);
+
+				if Mode = d1 then
+					if (Current_Block.Bit_Flag and 1) > 0 then
+						Discard_Size := OodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+					else
+						Decompress_B := Block_B;	
+					end if;
+				else -- D2, so encryption possibly used
+					if (Current_Block.Bit_Flag and 2) > 0 then	
+						--Decrypt block block buffer decrypt buffer TODO
+						null;
+					else
+						Decrypt_B := Block_B;
+					end if;
+
+					if (Current_Block.Bit_Flag and 1) > 0 then
+						Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+					else
+						Decompress_B := Decrypt_B;
+					end if;
+				end if;
+
+				-- If first block
+				if Current_Block_ID = E.Starting_Block then
+					declare
+						Copy_Size : size_t;
+					begin
+
+						-- If also last block, file size is copy size
+						if Current_Block_ID = Last_Block_ID then
+							Copy_Size := size_t (E.File_Size);
+						else
+							Copy_Size := size_t (BLOCK_SIZE - E.Starting_Block_Offset);
+						end if;
+
+						--memcpy (filebuffer, decompbuffer + E.Starting_Block_Offset, cpySize);
+						Current_Buffer_Offset := Current_Buffer_Offset + Natural (Copy_Size);
+					end;
+				-- If last block
+				elsif Current_Block_ID = Last_Block_ID then
+						--memcpy (Data_B'Address + Current_Buffer_Offset, Decompress_B'Address, E.File_Size - Current_Buffer_Offset);
+						null;
+				-- If normal block
+				else
+						--memcpy (Data_B'Address + Current_Buffer_Offset, Decompress_B'Address, BLOCK_SIZE);
+						Current_Buffer_Offset := Current_Buffer_Offset + Natural (BLOCK_SIZE);
+				end if;
+			end;
+
+			Close (In_F);
+			Current_Block_ID := Current_Block_ID + 1;
+		end loop;
+		return Data_B;
+	end Extract_Entry;
+
+	-- Extract files TODO: Decryption
+	procedure Extract (File_Name : in String; EV : in Entry_Vectors.Vector; BV : in Block_Vectors.Vector; H : in Header) is
 		-- Constants necessary for extraction
 		WEM_TYPE : constant Unsigned_8 := (case Mode is
 			when prebl | postbl => 26,
@@ -87,186 +158,44 @@ package body Unpacker.Worker is
 		BNK_SUBTYPE_EXTRA : constant Unsigned_8 := 20; -- Only used for Destiny 1
 
 		-- Variables
-		C : Natural := 0;
+		C : Natural := 0; -- Count (acts as iterator)
+
+		O : Stream_IO.File_Type; -- Output File
+		OS : Stream_Access; -- Output Stream
+		
 	begin
+		-- Loop over Entries in Vector
 		for E of EV loop
-			if E.Entry_Type = WEM_TYPE and E.Entry_Subtype = WEM_SUBTYPE then	
-				Put ("WEM: ");
-				Unsigned_32_IO.Put (Standard_Output, E.Reference, 0);
-				Put_Line (".wem");
-			elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
-				Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
+			-- Extract file data to buffer
+			if E.Entry_Type = BNK_TYPE or E.Entry_Type = WEM_TYPE then
+				
+				declare
+					Data_B : Data_Array_Access := Extract_Entry (File_Name, E, BV);
+				begin
+					-- Actually write files
+					if E.Entry_Type = WEM_TYPE and E.Entry_Subtype = WEM_SUBTYPE then	
+						Put ("WEM: ");
+						Unsigned_32_IO.Put (Standard_Output, E.Reference, 0);
+						Put_Line (".wem");
+						Put_Line (Standard_Error, "[Error] Unimplemented!");
+					elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
+						Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
+						-- Write Data
+						Open (O, Out_File, "wem/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
+						OS := Stream (O);
+						Data_Array'Write (OS, Data_B.all);
+						Close (O);
+					end if;
+					Free (Data_B);
+				end;
 			end if;
-			C := C + 1;
+
+			C := C + 1; -- Increment iterator
 		end loop;
 	end Extract;
 
-	-- Read Blocks TODO Needs checking
-	procedure Read_Blocks (S : Stream_Access; F : Stream_IO.File_Type; V : out Block_Vectors.Vector; H : Header) is
-		type Discard_Array is array (Natural range <>) of Unsigned_8;
-
-		-- Block Raw Type
-		-- May be read from Stream
-		type Raw_Block (Mode : Mode_Type) is record
-			Offset : Unsigned_32; -- HEX 0 .. 3
-			Size : Unsigned_32; -- HEX 4 .. 7
-			Patch_ID : Unsigned_16; -- HEX 8 .. 9
-			Bit_Flag : Unsigned_16; -- HEX A .. B
-
-			case Mode is
-				when prebl =>
-					Discard_PR : Discard_Array (16#C# .. 16#21# ); -- Check math
-					GCM_PR : GCM_Tag;
-				when postbl =>
-					Discard_PO : Discard_Array (16#C# .. 16#1F# );
-					GCM_PO : GCM_Tag;
-				when others => -- D1 does not use encryption
-					null;
-			end case;
-		end record;
-
-		R : Raw_Block (Mode);
-		I : Unsigned_32 := H.Block_Table_Offset;
-		SIZE : constant Unsigned_32 := (if Mode = d1 then 32 else 48); -- D1 blocks lack GCM tag
-		BOUND : constant Unsigned_32 := H.Block_Table_Offset + H.Block_Table_Size * SIZE;
-	begin
-		Set_Index (F, Stream_IO.Positive_Count (I) + 1); -- TODO: Work out why I + 1 needed
-		while I < BOUND loop	
-			Raw_Block'Read (S, R);
-			Block_Vectors.Append (V, (R.Offset, R.Size, R.Patch_ID, R.Bit_Flag, (case Mode is
-				when prebl => R.GCM_PR,
-				when postbl => R.GCM_PO,
-				when d1 => Blank_GCM)));
-			I := I + SIZE;
-		end loop;
-	end Read_Blocks;
-
-	-- Read Entries
-	procedure Read_Entries (S : Stream_Access; F : Stream_IO.File_Type; V : out Entry_Vectors.Vector; H : Header) is
-		type Raw_Entry is record
-			A : Unsigned_32;
-			B : Unsigned_32;
-			C : Unsigned_32;
-			D : Unsigned_32;
-		end record;
-
-		R : Raw_Entry;
-		E : Entry_Type;
-		I : Unsigned_32 := H.Entry_Table_Offset;
-	begin -- TODO: Compare shifting with C++ to ensure translation success
-		-- TODO Debug Put_Line ("[Debug] Start reading entries from " & Unsigned_32'Image (I)); -- TODO Debug
-		Set_Index (F, Stream_IO.Positive_Count (I + 1)); -- TODO: Work out why it was necessary to set index to I + 1
-
-		while I < H.Entry_Table_Offset + H.Entry_Table_Size * 16 loop
-			Raw_Entry'Read (S, R);
-			-- TODO Debug
---			Put_Line ("[Debug] A " & Unsigned_32'Image (R.A)
---				& " B " & Unsigned_32'Image (R.B)
---				& " C " & Unsigned_32'Image (R.C)
---				& " D " & Unsigned_32'Image (R.D));
-			-- TODO Debug
-			E.Reference := R.A;
-
-			if Mode = d1 then -- TODO: Check if crunching occurs for Entry_Type
-				E.Entry_Type := Unsigned_8 (R.B and 16#FF#);
-				E.Entry_Subtype := Unsigned_8 (Shift_Right (R.B, 24));
-			else
-				E.Entry_Type := Unsigned_8 (Shift_Right (R.B, 9) and 16#7F#);
-				E.Entry_Subtype := Unsigned_8 (Shift_Right (R.B, 6) and 7);
-			end if;
-
-			E.Starting_Block := R.C and 16#3FFF#;
-			E.Starting_Block_Offset := Shift_Left ((Shift_Right (R.C, 14) and 16#3FFF#), 4);
-
-			E.File_Size := Shift_Left (R.D and 16#3FFFFFF#, 4) or (Shift_Right (R.C, 28) and 16#F#);
-			Entry_Vectors.Append (V, E); -- Add Entry to linked list
-
-			I := I + 16;
-
-			-- TODO Debug
---			Put_Line ("[Debug] Reference " & Unsigned_32'Image (E.Reference)
---				& " Entry Type " & Unsigned_8'Image (E.Entry_Type)
---				& " Entry Subtype " & Unsigned_8'Image (E.Entry_Subtype)
---				& " Starting Block " & Unsigned_32'Image (E.Starting_Block)
---				& " Starting Block Offset " & Unsigned_32'Image (E.Starting_Block_Offset)
---				& " File Size " & Unsigned_32'Image (E.File_Size));
-			-- TODO Debug
-		end loop;
-	end Read_Entries;
-
-	-- Read Header given Stream
-	function Read_Header (S : in Stream_Access) return Header is
-		-- Local Types
-		-- Array of bytes to skip when reading
-		type Discard_Array is array (Integer range <>) of Unsigned_8;
-
-		-- PreBL and D1 Header Structure
-		type D1_PreBL_Header is record
-			Discard_1 : Discard_Array (0 .. 3);
-			Package_ID : Unsigned_16; -- HEX 4 to 5
-			Discard_2 : Discard_Array (6 .. 16#17# );
-			Build_ID : Unsigned_32; -- HEX 18 to 1B
-			Discard_3 : Discard_Array  (16#1C# .. 16#1F#);
-			Patch_ID : Unsigned_16; -- HEX 20 to 21
-			Discard_4 : Discard_Array (16#22# .. 16#B3#);
-			Entry_Table_Size : Unsigned_32; -- HEX B4 to B7
-			Entry_Table_Offset : Unsigned_32; -- HEX B8 to BB NOT ALWAYS
-			Discard_5 : Discard_Array (16#BC# .. 16#CF#);
-			Block_Table_Size : Unsigned_32; -- HEX D0 to D3
-			Block_Table_Offset : Unsigned_32; -- HEX D4 to D7 NOT ALWAYS
-			Discard_6 : Discard_Array (16#D8# .. 16#10F#);
-			Alternate_Entry_Table_Offset : Unsigned_32; -- HEX 110 to 113
-		end record;
-
-		-- PostBL Header Structure
-		type PostBL_Header is record
-			Discard_1 : Discard_Array (0 .. 16#0F#);
-			Package_ID : Unsigned_16; -- HEX 10 to 11
-			Discard_2 : Discard_Array (16#12# .. 16#27#);
-			Build_ID : Unsigned_32; -- HEX 28 to 2B
-			Discard_3 : Discard_Array (16#2C# .. 16#2F#);
-			Patch_ID : Unsigned_16; -- HEX 30 to 31
-			Discard_4 : Discard_Array (16#32# .. 16#43#);
-			Entry_Table_Offset : Unsigned_32; -- HEX 44 to 47
-			Discard_5 : Discard_Array (16#48# .. 16#5F#);
-			Entry_Table_Size : Unsigned_32; -- HEX 60 to 63
-			Discard_6 : Discard_Array (16#64# .. 16#67#);
-			Block_Table_Size : Unsigned_32; -- HEX 68 to 6B
-			Block_Table_Offset : Unsigned_32; -- HEX 6C to 6F
-		end record;
-
-		-- Suitable for reading directly from Stream_Access
-		type Raw_Header (Mode : Mode_Type) is record
-			case Mode is
-				when d1 | prebl =>
-					H_D1PR : D1_PreBL_Header;
-				when postbl =>
-					H_PO : PostBL_Header;
-			end case;
-		end record;
-
-		H : Header;
-		R : Raw_Header (Mode);
-	begin
-		Raw_Header'Read (S, R);
-
-		-- Correct internal data for Forsaken to Shadowkeep
-		if Mode = prebl and R.H_D1PR.Build_ID > 16#10000# then -- Forsaken and Later
-			R.H_D1PR.Entry_Table_Offset := R.H_D1PR.Alternate_Entry_Table_Offset + 96;
-			R.H_D1PR.Block_Table_Offset := R.H_D1PR.Entry_Table_Offset + R.H_D1PR.Entry_Table_Size * 16 + 32;
-		end if;
-
-		if Mode = prebl or Mode = d1 then
-			H := (R.H_D1PR.Package_ID, R.H_D1PR.Build_ID, R.H_D1PR.Patch_ID, R.H_D1PR.Entry_Table_Size, R.H_D1PR.Entry_Table_Offset, R.H_D1PR.Block_Table_Size, R.H_D1PR.Block_Table_Offset);	
-		else -- postbl
-			H := (R.H_PO.Package_ID, R.H_PO.Build_ID, R.H_PO.Patch_ID, R.H_PO.Entry_Table_Size, R.H_PO.Entry_Table_Offset, R.H_PO.Block_Table_Size, R.H_PO.Block_Table_Offset);	
-		end if;
-
-		return H;
-	end Read_Header;
-
 	-- Primary unpacker function
-	procedure Unpack (Stream : in Stream_Access; File : Stream_IO.File_Type; Output_Dir : in String) is
+	procedure Unpack (Stream : in Stream_Access; File : Stream_IO.File_Type; File_Name : in String; Output_Dir : in String) is
 		H : Header := Read_Header (Stream);
 		E : Entry_Vectors.Vector;
 		B : Block_Vectors.Vector;
@@ -284,6 +213,6 @@ package body Unpacker.Worker is
 		Modify_Nonce (H);
 		Read_Entries (Stream, File, E, H);
 		Read_Blocks (Stream, File, B, H);
-		Extract (Stream, File, E, B, H);
+		Extract (File_Name, E, B, H);
 	end Unpack;
 end Unpacker.Worker;

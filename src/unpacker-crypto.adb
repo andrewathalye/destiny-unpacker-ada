@@ -1,6 +1,7 @@
 with OpenSSL; use OpenSSL;
 
 with Unpacker; use Unpacker;
+with Unpacker.Package_File; use Unpacker.Package_File;
 package body Unpacker.Crypto is
 	-- Local Types
 	type Key_Type is array (1 .. 16) of Unsigned_8;
@@ -30,4 +31,18 @@ package body Unpacker.Crypto is
 			Nonce (12) := NONCE_POSTBL (12) xor Unsigned_8 (H.Package_ID and 16#FF#);
 		end if;
 	end Modify_Nonce;
+
+	procedure Decrypt_Block (B : Block; B_B : in Data_Array; D_B : out Data_Array) is
+	begin
+		Init Algorithm AES GCM Chaining Mode
+		Key data Size is 16
+		If B.Bit_Flag & 0x4
+			Send AES Key 1
+		Else
+			Send AES Key 0
+		Send Nonce as Nonce
+		Decrypt blockbuffer using AES GCM
+		Destroy Key data
+		Close Algorithm
+	end Decrypt_Block;
 end Unpacker.Crypto;

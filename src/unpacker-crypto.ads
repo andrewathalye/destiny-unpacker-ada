@@ -1,4 +1,4 @@
-with Unpacker.Worker; use Unpacker.Worker;
+limited with Unpacker.Package_File;
 
 with Interfaces; use Interfaces;
 
@@ -8,5 +8,5 @@ package Unpacker.Crypto is
 	Blank_GCM : constant GCM_Tag := (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 
 	-- Modify nonce based upon package header contents
-	procedure Modify_Nonce (H : Header);
+	procedure Modify_Nonce (H : Package_File.Header);
 end Unpacker.Crypto;
