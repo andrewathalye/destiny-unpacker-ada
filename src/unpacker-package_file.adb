@@ -1,4 +1,5 @@
 with Unpacker; use Unpacker;
+with Ada.Text_IO; use Ada; -- TODO Debug
 
 package body Unpacker.Package_File is
 	-- Local Types
@@ -35,6 +36,7 @@ package body Unpacker.Package_File is
 		Set_Index (F, Positive_Count (I) + 1); -- Index starts with 1
 		while I < BOUND loop	
 			Raw_Block'Read (S, R);
+			-- Text_IO.Put_Line ("[Debug] Patch ID is " & Unsigned_16'Image (R.Patch_Id));
 			Block_Vectors.Append (V, (R.Offset, R.Size, R.Patch_ID, R.Bit_Flag, (case Mode is
 				when prebl => R.GCM_PR,
 				when postbl => R.GCM_PO,

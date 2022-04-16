@@ -11,7 +11,6 @@ with Unchecked_Deallocation;
 
 package body Unpacker.Worker is
 	-- Common Buffer Type
-	type Data_Array is array (Natural range <>) of Unsigned_8;
 	type Data_Array_Access is access Data_Array;
 	procedure Free is new Unchecked_Deallocation (Object => Data_Array, Name => Data_Array_Access);
 
@@ -50,7 +49,7 @@ package body Unpacker.Worker is
 	end Hex_String;
 
 	-- Determine file with same Package ID and different patch ID
-	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID) & ".pkg"); 
+	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID)(2 .. Unsigned_16'Image (Patch_ID)'Last) & ".pkg"); 
 
 	-- Read data from entry into buffer
 	function Extract_Entry (File_Name : String; E : in Entry_Type; BV : in Block_Vectors.Vector) return Data_Array_Access is
@@ -71,19 +70,23 @@ package body Unpacker.Worker is
 		In_S : Stream_Access; -- Input Stream
 
 		-- Buffers
-		Decompress_B : aliased Data_Array (1 .. Positive (BLOCK_SIZE));Current_Buffer_Offset : Natural := 0;
+		Decompress_B : aliased Data_Array (1 .. Positive (BLOCK_SIZE));
+		Current_Buffer_Offset : Natural := 0;
 	begin
-		while Current_Block_ID < Last_Block_ID loop -- TODO Implement	
+		while Current_Block_ID < Last_Block_ID loop
 			Current_Block := Block_Vectors.Element (BV, Natural (Current_Block_ID));
 			declare
 				Block_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 				Decrypt_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 			begin
+				-- TODO Debug
+				Put_Line ("[Debug] Opening " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
 				Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
 				In_S := Stream (In_F);
 				Set_Index (In_F, Stream_IO.Positive_Count (Current_Block.Offset + 1));
 				Data_Array'Read (In_S, Block_B);
-
+				Put_Line ("[Debug] Moving on to decompress, decrypt phase"); --TODO Debug
+				
 				if Mode = d1 then
 					if (Current_Block.Bit_Flag and 1) > 0 then
 						Discard_Size := OodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
@@ -92,8 +95,7 @@ package body Unpacker.Worker is
 					end if;
 				else -- D2, so encryption possibly used
 					if (Current_Block.Bit_Flag and 2) > 0 then	
-						--Decrypt block block buffer decrypt buffer TODO
-						null;
+						Decrypt_Block (Current_Block, Block_B, Decrypt_B);
 					else
 						Decrypt_B := Block_B;
 					end if;
@@ -105,29 +107,30 @@ package body Unpacker.Worker is
 					end if;
 				end if;
 
+				Put_Line ("[Debug] Moving on array copy"); -- TODO Debug
+				-- TODO: Check array indices vs. C++
 				-- If first block
 				if Current_Block_ID = E.Starting_Block then
 					declare
-						Copy_Size : size_t;
+						Copy_Size : Natural;
 					begin
 
 						-- If also last block, file size is copy size
 						if Current_Block_ID = Last_Block_ID then
-							Copy_Size := size_t (E.File_Size);
+							Copy_Size := Natural (E.File_Size);
 						else
-							Copy_Size := size_t (BLOCK_SIZE - E.Starting_Block_Offset);
+							Copy_Size := Natural (BLOCK_SIZE - E.Starting_Block_Offset);
 						end if;
 
-						--memcpy (filebuffer, decompbuffer + E.Starting_Block_Offset, cpySize);
+						Data_B (1 .. Copy_Size) := Decompress_B (Natural (E.Starting_Block_Offset) + 1 .. Natural (E.Starting_Block_Offset) + Copy_Size + 1);	
 						Current_Buffer_Offset := Current_Buffer_Offset + Natural (Copy_Size);
 					end;
 				-- If last block
 				elsif Current_Block_ID = Last_Block_ID then
-						--memcpy (Data_B'Address + Current_Buffer_Offset, Decompress_B'Address, E.File_Size - Current_Buffer_Offset);
-						null;
+						Data_B (1 + Current_Buffer_Offset .. Natural (E.File_Size)) := Decompress_B (1 .. Natural (E.File_Size) - Current_Buffer_Offset);
 				-- If normal block
 				else
-						--memcpy (Data_B'Address + Current_Buffer_Offset, Decompress_B'Address, BLOCK_SIZE);
+						Data_B (1 + Current_Buffer_Offset .. Current_Buffer_Offset + Natural (BLOCK_SIZE)) := Decompress_B (1 .. Natural (BLOCK_SIZE));
 						Current_Buffer_Offset := Current_Buffer_Offset + Natural (BLOCK_SIZE);
 				end if;
 			end;
@@ -138,8 +141,8 @@ package body Unpacker.Worker is
 		return Data_B;
 	end Extract_Entry;
 
-	-- Extract files TODO: Decryption
-	procedure Extract (File_Name : in String; EV : in Entry_Vectors.Vector; BV : in Block_Vectors.Vector; H : in Header) is
+	-- Extract files
+	procedure Extract (File_Name : in String; Output_Dir : in String; EV : in Entry_Vectors.Vector; BV : in Block_Vectors.Vector; H : in Header) is
 		-- Constants necessary for extraction
 		WEM_TYPE : constant Unsigned_8 := (case Mode is
 			when prebl | postbl => 26,
@@ -168,8 +171,8 @@ package body Unpacker.Worker is
 		for E of EV loop
 			-- Extract file data to buffer
 			if E.Entry_Type = BNK_TYPE or E.Entry_Type = WEM_TYPE then
-				
 				declare
+					-- TODO: Not ready
 					Data_B : Data_Array_Access := Extract_Entry (File_Name, E, BV);
 				begin
 					-- Actually write files
@@ -181,21 +184,22 @@ package body Unpacker.Worker is
 					elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
 						Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
 						-- Write Data
-						Open (O, Out_File, "wem/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
-						OS := Stream (O);
-						Data_Array'Write (OS, Data_B.all);
-						Close (O);
+						--Create (O, Out_File, Output_Dir & "/bnk/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
+						--OS := Stream (O);
+						--Data_Array'Write (OS, Data_B.all);
+						--Close (O);
 					end if;
-					Free (Data_B);
+					-- Free (Data_B);
 				end;
+				exit; -- TODO Debug one at once
 			end if;
-
+			
 			C := C + 1; -- Increment iterator
 		end loop;
 	end Extract;
 
 	-- Primary unpacker function
-	procedure Unpack (Stream : in Stream_Access; File : Stream_IO.File_Type; File_Name : in String; Output_Dir : in String) is
+	procedure Unpack (Stream : in Stream_Access; File : in out Stream_IO.File_Type; File_Name : in String; Output_Dir : in String) is
 		H : Header := Read_Header (Stream);
 		E : Entry_Vectors.Vector;
 		B : Block_Vectors.Vector;
@@ -213,6 +217,7 @@ package body Unpacker.Worker is
 		Modify_Nonce (H);
 		Read_Entries (Stream, File, E, H);
 		Read_Blocks (Stream, File, B, H);
-		Extract (File_Name, E, B, H);
+		Close (File); -- No longer needed directly
+		Extract (File_Name, Output_Dir, E, B, H);
 	end Unpack;
 end Unpacker.Worker;

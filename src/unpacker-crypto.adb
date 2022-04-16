@@ -1,7 +1,14 @@
+with Ada.Text_IO; use Ada.Text_IO;
+
 with OpenSSL; use OpenSSL;
 
 with Unpacker; use Unpacker;
 with Unpacker.Package_File; use Unpacker.Package_File;
+
+with Interfaces.C; use Interfaces.C;
+with Interfaces.C.Strings; use Interfaces.C.Strings;
+with System;
+
 package body Unpacker.Crypto is
 	-- Local Types
 	type Key_Type is array (1 .. 16) of Unsigned_8;
@@ -32,17 +39,47 @@ package body Unpacker.Crypto is
 		end if;
 	end Modify_Nonce;
 
+	-- Decrypt Block Buffer (B_B) and output in Decrypt Buffer (D_B)
 	procedure Decrypt_Block (B : Block; B_B : in Data_Array; D_B : out Data_Array) is
+		-- Local Exception
+		Cipher_Exception : exception;
+
+		-- Cipher Internals
+		Cipher_Context : EVP_CIPHER_CTX := EVP_MD_CTX_new;
+		GCM : aliased GCM_Tag := B.GCM; -- Allow passing to C function
+
+		Out_Length : aliased constant int := 0;
+
 	begin
-		Init Algorithm AES GCM Chaining Mode
-		Key data Size is 16
-		If B.Bit_Flag & 0x4
-			Send AES Key 1
-		Else
-			Send AES Key 0
-		Send Nonce as Nonce
-		Decrypt blockbuffer using AES GCM
-		Destroy Key data
-		Close Algorithm
+		Put_Line ("[Debug] Crypto.Decrypt_Block called"); -- TODO Debug
+
+		-- Init Algorithm AES GCM Chaining Mode
+		if Cipher_Context = EVP_CIPHER_CTX (System.Null_Address) then
+			raise Cipher_Exception with "Failed to create context.";
+		end if;
+
+		Put_Line ("[Debug] Algorithm Init"); -- TODO Debug
+
+		-- Send correct key and nonce
+		if EVP_DecryptInit (Cipher_Context, EVP_aes_128_gcm, (if (B.Bit_Flag and 4) > 0 then AES_KEY_A'Address else AES_KEY_B'Address), Nonce'Address) /= 0 then
+			raise Cipher_Exception with "Failed to initialise cipher.";
+		end if;
+		
+		Put_Line ("[Debug] Key and IV Set"); -- TODO Debug
+
+		-- Send GCM Tag
+		EVP_CIPHER_CTX_ctrl (Cipher_Context, EVP_CTRL_AEAD_SET_TAG, 16, GCM'Address);
+
+		Put_Line ("[Debug] GCM Tag Set"); -- TODO Debug
+
+		-- Decrypt blockbuffer using AES GCM
+		if EVP_DecryptUpdate (Cipher_Context, D_B'Address, Out_Length'Address, B_B'Address, B_B'Length) /= 0 then
+			raise Cipher_Exception with "Decrypt failed.";
+		end if;
+
+		Put_Line ("[Debug] Decrypted data"); -- TODO Debug
+
+		-- Close Algorithm
+		EVP_CIPHER_CTX_free (Cipher_Context);
 	end Decrypt_Block;
 end Unpacker.Crypto;

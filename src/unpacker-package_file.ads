@@ -38,6 +38,9 @@ package Unpacker.Package_File is
 		Block_Table_Offset : Unsigned_32;
 	end record;
 
+	-- Buffer Universal Data Type
+	type Data_Array is array (Natural range <>) of Unsigned_8;
+
 	-- Vector types for unknown-size collections
 	package Entry_Vectors is new Ada.Containers.Vectors ( Index_Type => Natural, Element_Type => Entry_Type);	
 	package Block_Vectors is new Ada.Containers.Vectors ( Index_Type => Natural, Element_Type => Block);

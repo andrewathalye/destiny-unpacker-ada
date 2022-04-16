@@ -40,12 +40,17 @@ package body Unpacker is
 
 			if not Exists (Output_Dir) then -- Output dir
 				Create_Directory (Output_Dir);
-				if not Exists (Output_Dir & "/wem/") then
-					Create_Directory (Output_Dir & "/wem/");
-				end if;
-				if not Exists (Output_Dir & "/bnk/") then
-					Create_Directory (Output_Dir & "/bnk/");
-				end if;
+				
+			end if;
+
+			-- Create WEM dir if necessary
+			if not Exists (Output_Dir & "/wem/") then
+				Create_Directory (Output_Dir & "/wem/");
+			end if;
+
+			-- Create BNK dir if necessary
+			if not Exists (Output_Dir & "/bnk/") then
+				Create_Directory (Output_Dir & "/bnk/");
 			end if;
 
 			-- Iterate over pkg files
@@ -56,7 +61,6 @@ package body Unpacker is
 				Open (F, In_File, Full_Name (D));
 				SA := Stream (F);
 				Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);
-				Close (F);
 				return; -- TODO Debug with one file at once
 			end loop;
 			End_Search (SE);
