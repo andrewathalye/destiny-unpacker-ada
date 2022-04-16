@@ -27,8 +27,7 @@ package body Unpacker.Crypto is
 	NONCE_PREBL : constant Nonce_Type := (16#84#, 16#DF#, 16#11#, 16#C0#, 16#AC#, 16#AB#, 16#FA#, 16#20#, 16#33#, 16#11#, 16#26#, 16#99#);
 	Nonce : aliased Nonce_Type; -- The real nonce to be used, depends on package data
 
-	-- Modify Nonce based upon package contents
-	-- TODO: Identify whether removing & 0xFF from rightshifted was acceptable
+	-- Modify Nonce based upon package contents (also called IV)
 	procedure Modify_Nonce (H : Header) is
 	begin
  		if Mode = prebl then
@@ -55,38 +54,38 @@ package body Unpacker.Crypto is
 		Out_Length : int_access := new int;
 
 	begin
-		Put_Line ("[Debug] Crypto.Decrypt_Block called"); -- TODO Debug
+--		Put_Line ("[Debug] Crypto.Decrypt_Block called"); -- TODO Debug
 
 		-- Init Algorithm AES GCM Chaining Mode
 		if Cipher_Context = null then
 			raise Cipher_Exception with "Failed to create context.";
 		end if;
 
-		Put_Line ("[Debug] Algorithm Init"); -- TODO Debug
+--		Put_Line ("[Debug] Algorithm Init"); -- TODO Debug
 
 		-- Send correct key and nonce
-		if EVP_DecryptInit (Cipher_Context, EVP_aes_128_gcm, (if (B.Bit_Flag and 4) > 0 then AES_KEY_A'Address else AES_KEY_B'Address), Nonce'Address) /= 1 then
+		if EVP_DecryptInit (Cipher_Context, EVP_aes_128_gcm, (if (B.Bit_Flag and 4) > 0 then AES_KEY_B'Address else AES_KEY_A'Address), Nonce'Address) /= 1 then
 			raise Cipher_Exception with "Failed to initialise cipher.";
 		end if;
 		
-		Put_Line ("[Debug] Key and IV Set"); -- TODO Debug
+--		Put_Line ("[Debug] Key and IV Set"); -- TODO Debug
 
 		-- Send GCM Tag
 		EVP_CIPHER_CTX_ctrl (Cipher_Context, EVP_CTRL_AEAD_SET_TAG, 16, GCM'Address);
 
-		Put_Line ("[Debug] GCM Tag Set"); -- TODO Debug
+--		Put_Line ("[Debug] GCM Tag Set"); -- TODO Debug
 
 		-- Decrypt blockbuffer using AES GCM
 		if EVP_DecryptUpdate (Cipher_Context, D_B'Address, Out_Length, B_B'Address, B_B'Length) /= 1 then
 			raise Cipher_Exception with "Decrypt failed.";
 		end if;
 
-		Put_Line ("[Debug] Decrypted data length: " & int'Image (Out_Length.all)); -- TODO Debug
+--		Put_Line ("[Debug] Decrypted data length: " & int'Image (Out_Length.all)); -- TODO Debug
 
 		-- Close Algorithm
 		Free (Out_Length);
 		EVP_CIPHER_CTX_free (Cipher_Context);
 
-		Put_Line ("[Debug] Freed crypto objects"); -- TODO Debug
+--		Put_Line ("[Debug] Freed crypto objects"); -- TODO Debug
 	end Decrypt_Block;
 end Unpacker.Crypto;

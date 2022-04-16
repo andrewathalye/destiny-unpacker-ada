@@ -1,5 +1,5 @@
 with "external_openssl.gpr";
-with "external_ooz.gpr";
+with "external_linoodle.gpr";
 
 project Destiny_Unpacker is
 	for Languages use ("Ada");

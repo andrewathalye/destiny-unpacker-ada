@@ -30,7 +30,7 @@ package body Unpacker.Package_File is
 		SIZE : constant Unsigned_32 := (if Mode = d1 then 32 else 48); -- D1 blocks lack GCM tag
 		BOUND : constant Unsigned_32 := H.Block_Table_Offset + H.Block_Table_Size * SIZE;
 	begin
-		Set_Index (F, Positive_Count (I) + 1); -- Index starts with 1
+		Set_Index (F, Positive_Count (I + 1)); -- Index starts with 1
 		while I < BOUND loop	
 			Raw_Block'Read (S, R);
 			Block_Vectors.Append (V, (R.Offset, R.Size, R.Patch_ID, R.Bit_Flag, (case Mode is

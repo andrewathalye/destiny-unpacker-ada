@@ -1,9 +1,10 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams.Stream_IO; use Ada.Streams; use Ada.Streams.Stream_IO;
+with Ada.Directories; use Ada.Directories;
 with Interfaces.C; use Interfaces.C;
 with Unchecked_Deallocation;
 
-with ooz; use ooz;
+with linoodle; use linoodle;
 
 with Unpacker.Crypto; use Unpacker.Crypto;
 with Unpacker.Package_File; use Unpacker.Package_File;
@@ -47,6 +48,9 @@ package body Unpacker.Worker is
 		return O;
 	end Hex_String;
 
+	-- Print Decimal String for Unsigned_32
+	function Decimal_String (U : Unsigned_32) return String is (Unsigned_32'Image (U) (2 .. Unsigned_32'Image (U)'Last));
+
 	-- Determine file with same Package ID and different patch ID
 	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID)(2 .. Unsigned_16'Image (Patch_ID)'Last) & ".pkg"); 
 
@@ -56,50 +60,67 @@ package body Unpacker.Worker is
 		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
 		Block_Count : constant Unsigned_32 := Unsigned_32 ((E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE );
-		Last_Block_ID : Unsigned_32 := E.Starting_Block_Offset + Block_Count;
+		Last_Block_ID : Unsigned_32 := E.Starting_Block + Block_Count;
 
 		-- Variables
-		Data_B : Data_Array_Access (1 .. Natural (E.File_Size)) := new Data_Array (1 .. Natural (E.File_Size));
-
 		Current_Block_ID : Unsigned_32 := E.Starting_Block;
-		Current_Block : Block;
-		Discard_Size : int := 0;
+		Current_Block : Block := Block_Vectors.Element (BV, Natural (Current_Block_ID));
+		Discard_Size : size_t := 0; -- Used for results of Decompress operation (not needed)
+		Opened_Patch_ID : Unsigned_16 := Current_Block.Patch_ID;
 
 		-- File and Stream
 		In_F : Stream_IO.File_Type; -- Input File
 		In_S : Stream_Access; -- Input Stream
 
 		-- Buffers
+		Data_B : Data_Array_Access (1 .. Natural (E.File_Size)) := new Data_Array (1 .. Natural (E.File_Size));
 		Decompress_B : aliased Data_Array (1 .. Positive (BLOCK_SIZE));
 		Current_Buffer_Offset : Natural := 0;
 
-		-- TODO Debug Stuff
-		Out_F : Stream_IO.File_Type;
-		Out_S : Stream_Access;
 	begin
-		while Current_Block_ID < Last_Block_ID loop
-			Current_Block := Block_Vectors.Element (BV, Natural (Current_Block_ID));
+		-- TODO Debug
+		Put_Line ("[Debug] File size: " & Unsigned_32'Image (E.File_Size));
+		Put_Line ("[Debug] Current block ID: " & Unsigned_32'Image (Current_Block_ID));
+		Put_Line ("[Debug] Last block ID: " & Unsigned_32'Image (Last_Block_Id));
+
+		-- TODO Messy workaround for unknown SIGSEGV from linoodle
+		if Last_Block_ID = 14 and Current_Block_ID = 14 then
+			Put_Line (Standard_Error, "[Error] This input block would crash the program, so it has been skipped.");
+			return Data_B;
+		end if;
+
+		-- Open first patch file
+		Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
+		In_S := Stream (In_F);
+
+		while Current_Block_ID <= Last_Block_ID loop
+			Current_Block := Block_Vectors.Element (BV, Natural (Current_Block_ID)); -- Load next block (dup for first block)
+
 			declare
 				Block_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 				Decrypt_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 			begin
 				-- TODO Debug
-				Put_Line ("[Debug] Opening " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
-				Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
-				In_S := Stream (In_F);
+				Put_Line ("[Debug] Processing block " & Unsigned_32'Image (Current_Block_ID));
+				
+				-- Open correct file if block is in different patch ID
+				if Current_Block.Patch_ID /= Opened_Patch_ID then
+					-- TODO Debug
+					Put_Line ("[Debug] Opening " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
+
+					Close (In_F);
+					Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
+					In_S := Stream (In_F);
+
+					Opened_Patch_ID := Current_Block.Patch_ID;
+				end if;
+
 				Set_Index (In_F, Stream_IO.Positive_Count (Current_Block.Offset + 1));
 				Data_Array'Read (In_S, Block_B);
-				Put_Line ("[Debug] Moving on to decompress, decrypt phase"); --TODO Debug
-
-				-- TODO Debug Dump Encrypted Block
-				Create (Out_F, Out_File, "dumps/encrypted.dump");
-				Out_S := Stream (Out_F);
-				Data_Array'Write (Out_S, Block_B);
-				Close (Out_F);
 				
 				if Mode = d1 then
 					if (Current_Block.Bit_Flag and 1) > 0 then
-						Discard_Size := Ooz_Decompress (Block_B'Address, int (Current_Block.Size), Decompress_B'Address, int (BLOCK_SIZE));
+						Discard_Size := OodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 					else
 						Decompress_B := Block_B;	
 					end if;
@@ -110,30 +131,17 @@ package body Unpacker.Worker is
 						Decrypt_B := Block_B;
 					end if;
 
-					-- TODO Debug Dump Decrypted Block
-					Create (Out_F, Out_File, "dumps/decrypted.dump");
-					Out_S := Stream (Out_F);
-					Data_Array'Write (Out_S, Decrypt_B);
-					Close (Out_F);
-
-					Put_Line ("[Debug] Done with decrypt"); -- TODO Debug
 					if (Current_Block.Bit_Flag and 1) > 0 then
-						Put_Line ("[Debug] Now decompressing"); -- TODO Debug
-						Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
-						Discard_Size := Ooz_Decompress (Decrypt_B'Address, int (Current_Block.Size), Decompress_B'Address, int (BLOCK_SIZE));
-						Put_Line ("[Debug] Decompressed size is: " & int'Image (Discard_Size)); -- TODO Debug
+--						Put_Line ("[Debug] Now decompressing"); -- TODO Debug
+--						Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
+						Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+--						Put_Line ("[Debug] Decompressed size is: " & size_t'Image (Discard_Size)); -- TODO Debug
 					else
-						Decompress_B := Decrypt_B;
+						Decompress_B (Decrypt_B'Range) := Decrypt_B; -- Could be shorter in theory if last block
 					end if;
 
-					-- TODO Debug Dump Decompressed Block
-					Create (Out_F, Out_File, "dumps/decompress.dump");
-					Out_S := Stream (Out_F);
-					Data_Array'Write (Out_S, Decompress_B);
-					Close (Out_F);
 				end if;
 
-				Put_Line ("[Debug] Moving on array copy"); -- TODO Debug
 				-- TODO: Check array indices vs. C++
 				-- If first block
 				if Current_Block_ID = E.Starting_Block then
@@ -148,7 +156,7 @@ package body Unpacker.Worker is
 							Copy_Size := Natural (BLOCK_SIZE - E.Starting_Block_Offset);
 						end if;
 
-						Data_B (1 .. Copy_Size) := Decompress_B (Natural (E.Starting_Block_Offset) + 1 .. Natural (E.Starting_Block_Offset) + Copy_Size + 1);	
+						Data_B (1 .. Copy_Size) := Decompress_B (Natural (E.Starting_Block_Offset) + 1 .. Natural (E.Starting_Block_Offset) + Copy_Size);	
 						Current_Buffer_Offset := Current_Buffer_Offset + Natural (Copy_Size);
 					end;
 				-- If last block
@@ -156,14 +164,15 @@ package body Unpacker.Worker is
 						Data_B (1 + Current_Buffer_Offset .. Natural (E.File_Size)) := Decompress_B (1 .. Natural (E.File_Size) - Current_Buffer_Offset);
 				-- If normal block
 				else
-						Data_B (1 + Current_Buffer_Offset .. Current_Buffer_Offset + Natural (BLOCK_SIZE)) := Decompress_B (1 .. Natural (BLOCK_SIZE));
-						Current_Buffer_Offset := Current_Buffer_Offset + Natural (BLOCK_SIZE);
+					Data_B (1 + Current_Buffer_Offset .. Current_Buffer_Offset + Natural (BLOCK_SIZE)) := Decompress_B (1 .. Natural (BLOCK_SIZE));
+					Current_Buffer_Offset := Current_Buffer_Offset + Natural (BLOCK_SIZE);
 				end if;
 			end;
 
-			Close (In_F);
 			Current_Block_ID := Current_Block_ID + 1;
 		end loop;
+
+		Close (In_F); -- Make sure Patch file is closed before returning
 		return Data_B;
 	end Extract_Entry;
 
@@ -191,32 +200,46 @@ package body Unpacker.Worker is
 
 		O : Stream_IO.File_Type; -- Output File
 		OS : Stream_Access; -- Output Stream
+
+		-- Buffer
+		Data_B : Data_Array_Access;
 		
 	begin
 		-- Loop over Entries in Vector
 		for E of EV loop
-			-- Extract file data to buffer
-			if E.Entry_Type = BNK_TYPE or E.Entry_Type = WEM_TYPE then
+			-- If entry is supported type, read data and write to file
+			if E.Entry_Type = WEM_TYPE and E.Entry_Subtype = WEM_SUBTYPE then	
 				declare
-					 Data_B : Data_Array_Access := Extract_Entry (File_Name, E, BV);
+					Path : constant String := Output_Dir & "/wem/" & Decimal_String (E.Reference) & ".wem";
 				begin
-					-- Actually write files
-					if E.Entry_Type = WEM_TYPE and E.Entry_Subtype = WEM_SUBTYPE then	
-						Put ("WEM: ");
-						Unsigned_32_IO.Put (Standard_Output, E.Reference, 0);
-						Put_Line (".wem");
-						Put_Line (Standard_Error, "[Error] Unimplemented!");
-					elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
-						Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
+					-- Put_Line ("WEM: " & Decimal_String (E.Reference) & ".wem");
+					if not Exists (Path) then -- Don't overwrite existing file
+						-- Fill Buffer
+						Data_B := Extract_Entry (File_Name, E, BV);
 						-- Write Data
-						--Create (O, Out_File, Output_Dir & "/bnk/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
-						--OS := Stream (O);
-						--Data_Array'Write (OS, Data_B.all);
-						--Close (O);
+						Create (O, Out_File, Path);
+						OS := Stream (O);
+						Data_Array'Write (OS, Data_B.all);
+						Close (O);
+						Free (Data_B);
 					end if;
-					Free (Data_B);
 				end;
-				exit; -- TODO Debug one at once
+			elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
+				declare
+					Path : constant String := Output_Dir & "/bnk/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk";
+				begin
+					-- Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
+					if not Exists (Path) then -- Save time and don't overwrite existing files
+						-- Fill Buffer
+						Data_B := Extract_Entry (File_Name, E, BV);
+						-- Write Data
+						Create (O, Out_File, Path);
+						OS := Stream (O);
+						Data_Array'Write (OS, Data_B.all);
+						Close (O);
+						Free (Data_B);
+					end if;
+				end;
 			end if;
 			
 			C := C + 1; -- Increment iterator

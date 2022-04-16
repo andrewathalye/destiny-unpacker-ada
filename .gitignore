@@ -1,6 +1,7 @@
 ext_lib
-ext_src/ooz
+ext_src/linoodle
 oodle
+oo2core_8_win64.dll
 obj
 output
 packages
