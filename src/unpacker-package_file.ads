@@ -17,7 +17,7 @@ package Unpacker.Package_File is
 	end record;
 
 	-- Block Normalised Type
-	-- Cannot be read from Stream
+	-- Cannot be read from Stream (sadly)
 	type Block is record
 		Offset : Unsigned_32;
 		Size : Unsigned_32;

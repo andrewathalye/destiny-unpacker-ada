@@ -203,20 +203,24 @@ Block Type
 		GCM : array (1 .. 16) of Unsigned_8;
 	end record;
 
-	type Block is record
-		G : Generic_Block;
-		GCM : array (1 .. 16) of Unsigned_8;
-	end record;
+	Real Pre BL layout:
+		Offset u32
+		Size u32
+		Patch u16
+		Bit Flag u16 HEX A .. B
+		Skip 0x14 bytes HEX C D E F 10 11 12 13 14 15 16 17 18 19 1A 1B 1C 1D 1E 1F
+		GCM [16]
+	
+	Real Post Bl layout:
+		Offset u32
+		Size u32
+		Patch u16
+		Bit Flag u16 HEX A .. B
+		Skip 0x14 bytes HEX
+		GCM [16] HEX 20 .. 30
+	
+	May actually be the same layout? If so, merge into one
 
-	type GCM_Pre_BL is record
-		Discard : array ( 16#C# .. 16#21# ) of Unsigned_8; -- TODO: Check my math	
-		GCM : array (1 .. 16) of Unsigned_8;
-	end record;
-
-	type GCM_Post_BL is record
-		Discard : array ( 16#C# .. 16#1F# ) of Unsigned_8;
-		GCM : array (1 .. 16) of Unsigned_8;
-	end record;
 
 Read Block
 	declare

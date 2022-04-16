@@ -1,9 +1,9 @@
 ext_lib
-ext_src/linoodle
+ext_src/ooz
 oodle
 obj
 output
 packages
+dumps
 
 destinyunpacker
-oo2core_8_win64.dll

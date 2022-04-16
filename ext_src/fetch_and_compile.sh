@@ -1,10 +1,10 @@
 #!/bin/sh
-git clone https://github.com/McSimp/linoodle.git --recursive
+git clone https://github.com/zao/ooz.git
 mkdir ../ext_lib
-mkdir linoodle/build
-cd linoodle/build
+mkdir ooz/build
+cd ooz/build
 cmake .. -G Ninja
-ninja liblinoodle.so
-mv liblinoodle.so ../../../ext_lib/
+ninja liblibooz.so
+mv liblibooz.so ../../../ext_lib/
 echo "Done"
 

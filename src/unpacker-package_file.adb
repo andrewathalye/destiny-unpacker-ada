@@ -1,11 +1,11 @@
 with Unpacker; use Unpacker;
-with Ada.Text_IO; use Ada; -- TODO Debug
+-- with Ada.Text_IO; use Ada; -- TODO Debug
 
 package body Unpacker.Package_File is
 	-- Local Types
 	type Discard_Array is array (Natural range <>) of Unsigned_8;
 
-	-- Read Blocks TODO Needs checking
+	-- Read Blocks
 	procedure Read_Blocks (S : Stream_Access; F : File_Type; V : out Block_Vectors.Vector; H : Header) is
 
 		-- Block Raw Type
@@ -17,12 +17,9 @@ package body Unpacker.Package_File is
 			Bit_Flag : Unsigned_16; -- HEX A .. B
 
 			case Mode is
-				when prebl =>
-					Discard_PR : Discard_Array (16#C# .. 16#21# ); -- Check math
-					GCM_PR : GCM_Tag;
-				when postbl =>
-					Discard_PO : Discard_Array (16#C# .. 16#1F# );
-					GCM_PO : GCM_Tag;
+				when prebl | postbl =>
+					Discard_PR : Discard_Array (16#C# .. 16#1F# );
+					GCM : GCM_Tag;
 				when others => -- D1 does not use encryption
 					null;
 			end case;
@@ -36,12 +33,11 @@ package body Unpacker.Package_File is
 		Set_Index (F, Positive_Count (I) + 1); -- Index starts with 1
 		while I < BOUND loop	
 			Raw_Block'Read (S, R);
-			-- Text_IO.Put_Line ("[Debug] Patch ID is " & Unsigned_16'Image (R.Patch_Id));
 			Block_Vectors.Append (V, (R.Offset, R.Size, R.Patch_ID, R.Bit_Flag, (case Mode is
-				when prebl => R.GCM_PR,
-				when postbl => R.GCM_PO,
+				when prebl | postbl => R.GCM,
 				when d1 => Blank_GCM)));
 			I := I + SIZE;
+			-- Text_IO.Put_Line ("Offset " & Unsigned_32'Image (R.Offset) & " Size " & Unsigned_32'Image (R.Size) & " Patch_ID " & Unsigned_16'Image (R.Patch_ID) & " Bit Flag " & Unsigned_16'Image (R.Bit_Flag)); -- TODO Debug
 		end loop;
 	end Read_Blocks;
 
@@ -64,10 +60,10 @@ package body Unpacker.Package_File is
 		while I < H.Entry_Table_Offset + H.Entry_Table_Size * 16 loop
 			Raw_Entry'Read (S, R);
 			-- TODO Debug
---			Put_Line ("[Debug] A " & Unsigned_32'Image (R.A)
---				& " B " & Unsigned_32'Image (R.B)
---				& " C " & Unsigned_32'Image (R.C)
---				& " D " & Unsigned_32'Image (R.D));
+			-- Text_IO.Put_Line ("[Debug] A " & Unsigned_32'Image (R.A)
+			--	& " B " & Unsigned_32'Image (R.B)
+		        --	& " C " & Unsigned_32'Image (R.C)
+		        --	& " D " & Unsigned_32'Image (R.D));
 			-- TODO Debug
 			E.Reference := R.A;
 

@@ -1,13 +1,12 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams.Stream_IO; use Ada.Streams; use Ada.Streams.Stream_IO;
 with Interfaces.C; use Interfaces.C;
+with Unchecked_Deallocation;
 
-with linoodle; use linoodle;
+with ooz; use ooz;
 
 with Unpacker.Crypto; use Unpacker.Crypto;
 with Unpacker.Package_File; use Unpacker.Package_File;
-
-with Unchecked_Deallocation;
 
 package body Unpacker.Worker is
 	-- Common Buffer Type
@@ -61,9 +60,10 @@ package body Unpacker.Worker is
 
 		-- Variables
 		Data_B : Data_Array_Access (1 .. Natural (E.File_Size)) := new Data_Array (1 .. Natural (E.File_Size));
+
 		Current_Block_ID : Unsigned_32 := E.Starting_Block;
 		Current_Block : Block;
-		Discard_Size : size_t := 0;
+		Discard_Size : int := 0;
 
 		-- File and Stream
 		In_F : Stream_IO.File_Type; -- Input File
@@ -72,6 +72,10 @@ package body Unpacker.Worker is
 		-- Buffers
 		Decompress_B : aliased Data_Array (1 .. Positive (BLOCK_SIZE));
 		Current_Buffer_Offset : Natural := 0;
+
+		-- TODO Debug Stuff
+		Out_F : Stream_IO.File_Type;
+		Out_S : Stream_Access;
 	begin
 		while Current_Block_ID < Last_Block_ID loop
 			Current_Block := Block_Vectors.Element (BV, Natural (Current_Block_ID));
@@ -86,10 +90,16 @@ package body Unpacker.Worker is
 				Set_Index (In_F, Stream_IO.Positive_Count (Current_Block.Offset + 1));
 				Data_Array'Read (In_S, Block_B);
 				Put_Line ("[Debug] Moving on to decompress, decrypt phase"); --TODO Debug
+
+				-- TODO Debug Dump Encrypted Block
+				Create (Out_F, Out_File, "dumps/encrypted.dump");
+				Out_S := Stream (Out_F);
+				Data_Array'Write (Out_S, Block_B);
+				Close (Out_F);
 				
 				if Mode = d1 then
 					if (Current_Block.Bit_Flag and 1) > 0 then
-						Discard_Size := OodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						Discard_Size := Ooz_Decompress (Block_B'Address, int (Current_Block.Size), Decompress_B'Address, int (BLOCK_SIZE));
 					else
 						Decompress_B := Block_B;	
 					end if;
@@ -100,11 +110,27 @@ package body Unpacker.Worker is
 						Decrypt_B := Block_B;
 					end if;
 
+					-- TODO Debug Dump Decrypted Block
+					Create (Out_F, Out_File, "dumps/decrypted.dump");
+					Out_S := Stream (Out_F);
+					Data_Array'Write (Out_S, Decrypt_B);
+					Close (Out_F);
+
+					Put_Line ("[Debug] Done with decrypt"); -- TODO Debug
 					if (Current_Block.Bit_Flag and 1) > 0 then
-						Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						Put_Line ("[Debug] Now decompressing"); -- TODO Debug
+						Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
+						Discard_Size := Ooz_Decompress (Decrypt_B'Address, int (Current_Block.Size), Decompress_B'Address, int (BLOCK_SIZE));
+						Put_Line ("[Debug] Decompressed size is: " & int'Image (Discard_Size)); -- TODO Debug
 					else
 						Decompress_B := Decrypt_B;
 					end if;
+
+					-- TODO Debug Dump Decompressed Block
+					Create (Out_F, Out_File, "dumps/decompress.dump");
+					Out_S := Stream (Out_F);
+					Data_Array'Write (Out_S, Decompress_B);
+					Close (Out_F);
 				end if;
 
 				Put_Line ("[Debug] Moving on array copy"); -- TODO Debug
@@ -172,8 +198,7 @@ package body Unpacker.Worker is
 			-- Extract file data to buffer
 			if E.Entry_Type = BNK_TYPE or E.Entry_Type = WEM_TYPE then
 				declare
-					-- TODO: Not ready
-					Data_B : Data_Array_Access := Extract_Entry (File_Name, E, BV);
+					 Data_B : Data_Array_Access := Extract_Entry (File_Name, E, BV);
 				begin
 					-- Actually write files
 					if E.Entry_Type = WEM_TYPE and E.Entry_Subtype = WEM_SUBTYPE then	
@@ -189,7 +214,7 @@ package body Unpacker.Worker is
 						--Data_Array'Write (OS, Data_B.all);
 						--Close (O);
 					end if;
-					-- Free (Data_B);
+					Free (Data_B);
 				end;
 				exit; -- TODO Debug one at once
 			end if;

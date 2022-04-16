@@ -1,7 +1,7 @@
-library project External_Linoodle is
+library project External_OOZ is
 	for Languages use ("C");
 	for Library_Dir use "ext_lib";
 	for Library_Kind use "dynamic";
-	for Library_Name use "linoodle";
+	for Library_Name use "libooz";
 	for Externally_Built use "true";
-end External_Linoodle;
+end External_OOZ;

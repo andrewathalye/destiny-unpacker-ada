@@ -6,13 +6,17 @@ with Unpacker; use Unpacker;
 with Unpacker.Package_File; use Unpacker.Package_File;
 
 with Interfaces.C; use Interfaces.C;
-with Interfaces.C.Strings; use Interfaces.C.Strings;
-with System;
+
+with Unchecked_Deallocation;
 
 package body Unpacker.Crypto is
 	-- Local Types
 	type Key_Type is array (1 .. 16) of Unsigned_8;
 	type Nonce_Type is array (1 .. 12) of Unsigned_8;
+	type int_access is access int;
+
+	-- Local Instances
+	procedure Free is new Unchecked_Deallocation (Object => int, Name => int_access);
 
 	-- AES decryption keys (sourced from C++ project)
 	AES_KEY_A : aliased constant Key_Type := (16#D6#, 16#2A#, 16#B2#, 16#C1#, 16#0C#, 16#C0#, 16#1B#, 16#C5#, 16#35#, 16#DB#, 16#7B#, 16#86#, 16#55#, 16#C7#, 16#DC#, 16#3B#);
@@ -45,23 +49,23 @@ package body Unpacker.Crypto is
 		Cipher_Exception : exception;
 
 		-- Cipher Internals
-		Cipher_Context : EVP_CIPHER_CTX := EVP_MD_CTX_new;
+		Cipher_Context : access EVP_CIPHER_CTX := EVP_CIPHER_CTX_new;
 		GCM : aliased GCM_Tag := B.GCM; -- Allow passing to C function
 
-		Out_Length : aliased constant int := 0;
+		Out_Length : int_access := new int;
 
 	begin
 		Put_Line ("[Debug] Crypto.Decrypt_Block called"); -- TODO Debug
 
 		-- Init Algorithm AES GCM Chaining Mode
-		if Cipher_Context = EVP_CIPHER_CTX (System.Null_Address) then
+		if Cipher_Context = null then
 			raise Cipher_Exception with "Failed to create context.";
 		end if;
 
 		Put_Line ("[Debug] Algorithm Init"); -- TODO Debug
 
 		-- Send correct key and nonce
-		if EVP_DecryptInit (Cipher_Context, EVP_aes_128_gcm, (if (B.Bit_Flag and 4) > 0 then AES_KEY_A'Address else AES_KEY_B'Address), Nonce'Address) /= 0 then
+		if EVP_DecryptInit (Cipher_Context, EVP_aes_128_gcm, (if (B.Bit_Flag and 4) > 0 then AES_KEY_A'Address else AES_KEY_B'Address), Nonce'Address) /= 1 then
 			raise Cipher_Exception with "Failed to initialise cipher.";
 		end if;
 		
@@ -73,13 +77,16 @@ package body Unpacker.Crypto is
 		Put_Line ("[Debug] GCM Tag Set"); -- TODO Debug
 
 		-- Decrypt blockbuffer using AES GCM
-		if EVP_DecryptUpdate (Cipher_Context, D_B'Address, Out_Length'Address, B_B'Address, B_B'Length) /= 0 then
+		if EVP_DecryptUpdate (Cipher_Context, D_B'Address, Out_Length, B_B'Address, B_B'Length) /= 1 then
 			raise Cipher_Exception with "Decrypt failed.";
 		end if;
 
-		Put_Line ("[Debug] Decrypted data"); -- TODO Debug
+		Put_Line ("[Debug] Decrypted data length: " & int'Image (Out_Length.all)); -- TODO Debug
 
 		-- Close Algorithm
+		Free (Out_Length);
 		EVP_CIPHER_CTX_free (Cipher_Context);
+
+		Put_Line ("[Debug] Freed crypto objects"); -- TODO Debug
 	end Decrypt_Block;
 end Unpacker.Crypto;

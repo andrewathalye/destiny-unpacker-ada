@@ -2,14 +2,11 @@ Destiny Linux Unpacker
 ======================
 
 This is a work-in-progress Linux unpacker for Destiny 1 and 2, written in Ada.  
-It makes use of Linoodle (https://www.github.com/McSimp/linoodle) in order to
+It makes use of OOZ (https://github.com/zao/ooz) in order to
 interface with Oodle, the compressor used by Destiny.
 
 Setup and Usage
 ---------------
-
-Copy an Oodle DLL from the game and rename it oo2core_8_win64.dll.
-This DLL must be placed in the root folder of the project.
 
 If you would like to build from source, see that section. Otherwise,
 download a release from the Releases section (if available).
@@ -21,7 +18,7 @@ Building from Source
 --------------------
 
 To build from source, you'll need GNAT 2021 (FSF or GPL).
-Use `./ext_src/fetch_and_compile.sh` to setup linoodle and put it in ext_lib (it requires Ninja and CMake).
+Use `./ext_src/fetch_and_compile.sh` to setup ooz (it requires libsodium, Ninja, and CMake)
 OpenSSL (libcrypto) is needed for encryption. This can be manually removed if you only need D1 support.
 Finally, run `gprbuild -Pdestiny_unpacker` to build an executable.
 
