@@ -1,5 +1,5 @@
 with "external_openssl.gpr";
-with "external_linoodle.gpr";
+-- TODO: Fix compression problem with "external_linoodle.gpr";
 
 project Destiny_Unpacker is
 	for Languages use ("Ada");
@@ -13,6 +13,6 @@ project Destiny_Unpacker is
 	end Builder;
 
 	package Linker is
-		for Switches ("Ada") use ("-g");
+		for Switches ("Ada") use ("-O2");
 	end Linker;
 end Destiny_Unpacker;

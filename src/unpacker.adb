@@ -15,7 +15,8 @@ package body Unpacker is
 		Invalid_Arguments : exception;
 
 	begin
-		Put_Line ("Destiny Linux Unpacker v0.3");
+		Put_Line ("Destiny Linux Unpacker v0.4");
+		Put_Line ("Important Note: Decompression not supported");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then

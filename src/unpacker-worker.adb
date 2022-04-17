@@ -4,7 +4,7 @@ with Ada.Directories; use Ada.Directories;
 with Interfaces.C; use Interfaces.C;
 with Unchecked_Deallocation;
 
-with linoodle; use linoodle;
+-- TODO: Fix compression issue with linoodle; use linoodle;
 
 with Unpacker.Crypto; use Unpacker.Crypto;
 with Unpacker.Package_File; use Unpacker.Package_File;
@@ -55,7 +55,7 @@ package body Unpacker.Worker is
 	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID)(2 .. Unsigned_16'Image (Patch_ID)'Last) & ".pkg"); 
 
 	-- Read data from entry into buffer
-	function Extract_Entry (File_Name : String; E : in Entry_Type; BV : in Block_Vectors.Vector) return Data_Array_Access is
+	function Extract_Entry (File_Name : String; E : in Entry_Type; BV : in Block_Vectors.Vector; Data_Out : out Data_Array_Access ) return Boolean is
 		-- Constants
 		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
@@ -73,21 +73,15 @@ package body Unpacker.Worker is
 		In_S : Stream_Access; -- Input Stream
 
 		-- Buffers
-		Data_B : Data_Array_Access (1 .. Natural (E.File_Size)) := new Data_Array (1 .. Natural (E.File_Size));
+		Data_B : Data_Array_Access := new Data_Array (1 .. Natural (E.File_Size));
 		Decompress_B : aliased Data_Array (1 .. Positive (BLOCK_SIZE));
 		Current_Buffer_Offset : Natural := 0;
 
 	begin
 		-- TODO Debug
-		Put_Line ("[Debug] File size: " & Unsigned_32'Image (E.File_Size));
-		Put_Line ("[Debug] Current block ID: " & Unsigned_32'Image (Current_Block_ID));
-		Put_Line ("[Debug] Last block ID: " & Unsigned_32'Image (Last_Block_Id));
-
-		-- TODO Messy workaround for unknown SIGSEGV from linoodle
-		-- if Last_Block_ID = 14 or Last_Block_ID = 3168 or Last_Block_ID = 3279 then
-		--	Put_Line (Standard_Error, "[Error] This input entry would crash the program, so it has been skipped.");
-		--	return Data_B;
-		-- end if;
+		-- Put_Line ("[Debug] File size: " & Unsigned_32'Image (E.File_Size));
+		-- Put_Line ("[Debug] Current block ID: " & Unsigned_32'Image (Current_Block_ID));
+		-- Put_Line ("[Debug] Last block ID: " & Unsigned_32'Image (Last_Block_Id));
 
 		-- Open first patch file
 		Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
@@ -120,7 +114,9 @@ package body Unpacker.Worker is
 				
 				if Mode = d1 then
 					if (Current_Block.Bit_Flag and 1) > 0 then
-						Discard_Size := OodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						-- Discard_Size := OodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						Close (In_F); -- TODO Fix decompression
+						return False; -- TODO Fix decompression
 					else
 						Decompress_B := Block_B;	
 					end if;
@@ -132,11 +128,22 @@ package body Unpacker.Worker is
 					end if;
 
 					if (Current_Block.Bit_Flag and 1) > 0 then
-						Put_Line ("[Debug] Now decompressing " & Unsigned_32'Image (Current_Block_ID)); -- TODO Debug
+						-- Put_Line ("[Debug] Now decompressing " & Unsigned_32'Image (Current_Block_ID)); -- TODO Debug
 
-						Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
-						Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						-- Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
+
+						-- Messy workaround for linoodle sigsegv TODO
+						-- if not (Current_Block_ID = 14 and Current_Block.Size = 35726)
+						--	and not (Current_Block_ID = 3168 and Current_Block.Size = 17930)
+						--	and not (Current_Block_ID = 3279 and Current_Block.Size = 47312) then
+						--		Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						--else
+						--	Put_Line (Standard_Error, "[Error] Encountered block which would have crashed: " & Unsigned_32'Image (Current_Block_ID));
+						-- end if;
 --						Put_Line ("[Debug] Decompressed size is: " & size_t'Image (Discard_Size)); -- TODO Debug
+--
+						Close (In_F); -- TODO Fix decompression
+						return False; -- TODO Fix decompression
 					else
 						Decompress_B (Decrypt_B'Range) := Decrypt_B; -- Could be shorter in theory if last block
 					end if;
@@ -174,7 +181,8 @@ package body Unpacker.Worker is
 		end loop;
 
 		Close (In_F); -- Make sure Patch file is closed before returning
-		return Data_B;
+		Data_Out := Data_B; -- Grant program access to Data Buffer
+		return True; -- TODO: Fix decompression
 	end Extract_Entry;
 
 	-- Extract files
@@ -202,9 +210,8 @@ package body Unpacker.Worker is
 		O : Stream_IO.File_Type; -- Output File
 		OS : Stream_Access; -- Output Stream
 
-		-- Buffer
-		Data_B : Data_Array_Access;
-		
+		-- Buffers
+		Data_B : Data_Array_Access := null;
 	begin
 		-- Loop over Entries in Vector
 		for E of EV loop
@@ -212,17 +219,21 @@ package body Unpacker.Worker is
 			if E.Entry_Type = WEM_TYPE and E.Entry_Subtype = WEM_SUBTYPE then	
 				declare
 					Path : constant String := Output_Dir & "/wem/" & Decimal_String (E.Reference) & ".wem";
+					Data_B : Data_Array_Access := new Data_Array (1 .. Natural (E.File_Size));
 				begin
 					-- Put_Line ("WEM: " & Decimal_String (E.Reference) & ".wem");
 					if not Exists (Path) then -- Don't overwrite existing file
 						-- Fill Buffer
-						Data_B := Extract_Entry (File_Name, E, BV);
-						-- Write Data
-						Create (O, Out_File, Path);
-						OS := Stream (O);
-						Data_Array'Write (OS, Data_B.all);
-						Close (O);
-						Free (Data_B);
+						if Extract_Entry (File_Name, E, BV, Data_B) then -- TODO: Fix decompress
+							-- Write Data
+							Create (O, Out_File, Path);
+							OS := Stream (O);
+							Data_Array'Write (OS, Data_B.all);
+							Close (O);
+							Free (Data_B);
+						else
+							Put_Line (Standard_Error, "[Decompress Error] Failed to extract output WEM " & Path);
+						end if;
 					end if;
 				end;
 			elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
@@ -232,13 +243,16 @@ package body Unpacker.Worker is
 					-- Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
 					if not Exists (Path) then -- Save time and don't overwrite existing files
 						-- Fill Buffer
-						Data_B := Extract_Entry (File_Name, E, BV);
-						-- Write Data
-						Create (O, Out_File, Path);
-						OS := Stream (O);
-						Data_Array'Write (OS, Data_B.all);
-						Close (O);
-						Free (Data_B);
+						if Extract_Entry (File_Name, E, BV, Data_B) then -- TODO: Fix decompress
+							-- Write Data
+							Create (O, Out_File, Path);
+							OS := Stream (O);
+							Data_Array'Write (OS, Data_B.all);
+							Close (O);
+							Free (Data_B);
+						else
+							Put_Line (Standard_Error, "[Decompress Error] Failed to extract output BNK " & Path);
+						end if;
 					end if;
 				end;
 			end if;
