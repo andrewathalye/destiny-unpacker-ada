@@ -15,7 +15,7 @@ package body Unpacker is
 		Invalid_Arguments : exception;
 
 	begin
-		Put_Line ("Destiny Linux Unpacker v0.2");
+		Put_Line ("Destiny Linux Unpacker v0.3");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then
@@ -61,7 +61,6 @@ package body Unpacker is
 				Open (F, In_File, Full_Name (D));
 				SA := Stream (F);
 				Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);
-				return; -- TODO Debug with one file at once
 			end loop;
 			End_Search (SE);
 		end;

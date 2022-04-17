@@ -11,4 +11,8 @@ project Destiny_Unpacker is
 	package Builder is
 		for Executable ("main.adb") use "destinyunpacker";
 	end Builder;
+
+	package Linker is
+		for Switches ("Ada") use ("-g");
+	end Linker;
 end Destiny_Unpacker;

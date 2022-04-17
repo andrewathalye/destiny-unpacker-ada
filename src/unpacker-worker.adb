@@ -84,10 +84,10 @@ package body Unpacker.Worker is
 		Put_Line ("[Debug] Last block ID: " & Unsigned_32'Image (Last_Block_Id));
 
 		-- TODO Messy workaround for unknown SIGSEGV from linoodle
-		if Last_Block_ID = 14 and Current_Block_ID = 14 then
-			Put_Line (Standard_Error, "[Error] This input block would crash the program, so it has been skipped.");
-			return Data_B;
-		end if;
+		-- if Last_Block_ID = 14 or Last_Block_ID = 3168 or Last_Block_ID = 3279 then
+		--	Put_Line (Standard_Error, "[Error] This input entry would crash the program, so it has been skipped.");
+		--	return Data_B;
+		-- end if;
 
 		-- Open first patch file
 		Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
@@ -101,7 +101,7 @@ package body Unpacker.Worker is
 				Decrypt_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 			begin
 				-- TODO Debug
-				Put_Line ("[Debug] Processing block " & Unsigned_32'Image (Current_Block_ID));
+--				Put_Line ("[Debug] Processing block " & Unsigned_32'Image (Current_Block_ID));
 				
 				-- Open correct file if block is in different patch ID
 				if Current_Block.Patch_ID /= Opened_Patch_ID then
@@ -132,8 +132,9 @@ package body Unpacker.Worker is
 					end if;
 
 					if (Current_Block.Bit_Flag and 1) > 0 then
---						Put_Line ("[Debug] Now decompressing"); -- TODO Debug
---						Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
+						Put_Line ("[Debug] Now decompressing " & Unsigned_32'Image (Current_Block_ID)); -- TODO Debug
+
+						Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
 						Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 --						Put_Line ("[Debug] Decompressed size is: " & size_t'Image (Discard_Size)); -- TODO Debug
 					else
