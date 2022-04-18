@@ -55,7 +55,8 @@ package body Unpacker.Worker is
 	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID)(2 .. Unsigned_16'Image (Patch_ID)'Last) & ".pkg"); 
 
 	-- Read data from entry into buffer
-	function Extract_Entry (File_Name : String; E : in Entry_Type; BV : in Block_Vectors.Vector; Data_Out : out Data_Array_Access ) return Boolean is
+	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and freed when no longer needed by the calling subprogram.
+	function Extract_Entry (File_Name : String; E : Entry_Type; BV : Block_Vectors.Vector; Data_B : in out not null Data_Array_Access ) return Boolean is
 		-- Constants
 		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
@@ -73,7 +74,6 @@ package body Unpacker.Worker is
 		In_S : Stream_Access; -- Input Stream
 
 		-- Buffers
-		Data_B : Data_Array_Access := new Data_Array (1 .. Natural (E.File_Size));
 		Decompress_B : aliased Data_Array (1 .. Positive (BLOCK_SIZE));
 		Current_Buffer_Offset : Natural := 0;
 
@@ -181,8 +181,7 @@ package body Unpacker.Worker is
 		end loop;
 
 		Close (In_F); -- Make sure Patch file is closed before returning
-		Data_Out := Data_B; -- Grant program access to Data Buffer
-		return True; -- TODO: Fix decompression
+		return True; 
 	end Extract_Entry;
 
 	-- Extract files
@@ -209,9 +208,6 @@ package body Unpacker.Worker is
 
 		O : Stream_IO.File_Type; -- Output File
 		OS : Stream_Access; -- Output Stream
-
-		-- Buffers
-		Data_B : Data_Array_Access := null;
 	begin
 		-- Loop over Entries in Vector
 		for E of EV loop
@@ -224,7 +220,7 @@ package body Unpacker.Worker is
 					-- Put_Line ("WEM: " & Decimal_String (E.Reference) & ".wem");
 					if not Exists (Path) then -- Don't overwrite existing file
 						-- Fill Buffer
-						if Extract_Entry (File_Name, E, BV, Data_B) then -- TODO: Fix decompress
+						if Extract_Entry (File_Name, E, BV, Data_B) then -- Successfully extracted
 							-- Write Data
 							Create (O, Out_File, Path);
 							OS := Stream (O);
@@ -239,11 +235,12 @@ package body Unpacker.Worker is
 			elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
 				declare
 					Path : constant String := Output_Dir & "/bnk/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk";
+					Data_B : Data_Array_Access := new Data_Array (1 .. Natural (E.File_Size));
 				begin
 					-- Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
 					if not Exists (Path) then -- Save time and don't overwrite existing files
 						-- Fill Buffer
-						if Extract_Entry (File_Name, E, BV, Data_B) then -- TODO: Fix decompress
+						if Extract_Entry (File_Name, E, BV, Data_B) then -- Successfully extracted
 							-- Write Data
 							Create (O, Out_File, Path);
 							OS := Stream (O);
@@ -268,13 +265,13 @@ package body Unpacker.Worker is
 		B : Block_Vectors.Vector;
 	begin
 		-- TODO Debug
-		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)
-			& " Build ID " & Unsigned_32'Image (H.Build_ID)
-			& " Patch ID " & Unsigned_16'Image (H.Patch_ID)
-			& " Entry Table Size " & Unsigned_32'Image (H.Entry_Table_Size)
-			& " Entry Table Offset " & Unsigned_32'Image (H.Entry_Table_Offset)
-			& " Block Table Size " & Unsigned_32'Image (H.Block_Table_Size)
-			& " Block Table Offset " & Unsigned_32'Image (H.Block_Table_Offset));
+--		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)
+--			& " Build ID " & Unsigned_32'Image (H.Build_ID)
+--			& " Patch ID " & Unsigned_16'Image (H.Patch_ID)
+--			& " Entry Table Size " & Unsigned_32'Image (H.Entry_Table_Size)
+--			& " Entry Table Offset " & Unsigned_32'Image (H.Entry_Table_Offset)
+--			& " Block Table Size " & Unsigned_32'Image (H.Block_Table_Size)
+--			& " Block Table Offset " & Unsigned_32'Image (H.Block_Table_Offset));
 		-- TODO Debug
 
 		Modify_Nonce (H);

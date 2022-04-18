@@ -19,6 +19,9 @@ works. I suspect the issue is somewhere in Linoodle - maybe it doesn't implement
 API to handle every outcome for Oodle's decompression, but I am not well-versed in Windows debugging so I can't
 be sure.
 
+In the meantime, I have disabled decompression support in order to avoid random and unpredictable errors.
+I apologise for any inconvenience resulting from this.
+
 Setup and Usage
 ---------------
 

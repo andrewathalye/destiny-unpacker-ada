@@ -95,7 +95,7 @@ package body Unpacker.Package_File is
 	end Read_Entries;
 
 	-- Read Header given Stream
-	function Read_Header (S : in Stream_Access) return Header is
+	function Read_Header (S : Stream_Access) return Header is
 		-- Local Types
 		-- Array of bytes to skip when reading
 		type Discard_Array is array (Integer range <>) of Unsigned_8;
@@ -151,6 +151,7 @@ package body Unpacker.Package_File is
 		Raw_Header'Read (S, R);
 
 		-- Correct internal data for Forsaken to Shadowkeep
+		-- Note: this is a designation about individual packages, not the whole folder
 		if Mode = prebl and R.H_D1PR.Build_ID > 16#10000# then -- Forsaken and Later
 			R.H_D1PR.Entry_Table_Offset := R.H_D1PR.Alternate_Entry_Table_Offset + 96;
 			R.H_D1PR.Block_Table_Offset := R.H_D1PR.Entry_Table_Offset + R.H_D1PR.Entry_Table_Size * 16 + 32;

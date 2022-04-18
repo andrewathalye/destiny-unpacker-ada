@@ -15,8 +15,7 @@ package body Unpacker is
 		Invalid_Arguments : exception;
 
 	begin
-		Put_Line ("Destiny Linux Unpacker v0.4");
-		Put_Line ("Important Note: Decompression not supported");
+		Put_Line ("Destiny Linux Unpacker v0.5");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then
@@ -58,7 +57,7 @@ package body Unpacker is
 			Start_Search (SE, Package_Dir, "*.pkg");
 			while More_Entries (SE) loop
 				Get_Next_Entry (SE, D);
-				Put_Line ("[Debug] " & Simple_Name (D)); -- TODO Debug
+				Put_Line ("[Info] Unpacking " & Simple_Name (D)); -- TODO Debug
 				Open (F, In_File, Full_Name (D));
 				SA := Stream (F);
 				Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);

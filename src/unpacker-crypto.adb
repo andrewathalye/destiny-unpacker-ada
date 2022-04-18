@@ -43,7 +43,7 @@ package body Unpacker.Crypto is
 	end Modify_Nonce;
 
 	-- Decrypt Block Buffer (B_B) and output in Decrypt Buffer (D_B)
-	procedure Decrypt_Block (B : Block; B_B : in Data_Array; D_B : out Data_Array) is
+	procedure Decrypt_Block (B : Block; B_B : Data_Array; D_B : out Data_Array) is
 		-- Local Exception
 		Cipher_Exception : exception;
 
