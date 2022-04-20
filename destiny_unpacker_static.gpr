@@ -1,8 +1,8 @@
-with "external_openssl.gpr";
-with "external_linoodle.gpr";
-with "external_oodle.gpr";
+with "ext_gpr/external_openssl.gpr";
+with "ext_gpr/external_linoodle.gpr";
+with "ext_gpr/external_oodle.gpr";
 
--- Note: Use this file only for generate binary releases
+-- Note: Use this file only to generate binary releases
 project Destiny_Unpacker_Static is
 	for Languages use ("Ada");
 	for Source_Dirs use ("src");
@@ -11,7 +11,7 @@ project Destiny_Unpacker_Static is
 	for Exec_Dir use ".";
 
 	package Builder is
-		for Executable ("main.adb") use "destinyunpacker";
+		for Executable ("main.adb") use "destinyunpacker_static";
 	end Builder;
 
 	package Compiler is

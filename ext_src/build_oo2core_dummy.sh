@@ -1,7 +1,5 @@
 #!/bin/sh
 mkdir ext_lib
 cd ext_src
-gcc -c -fpic oo2core_dummy.c
-gcc -shared -o liboo2corelinux64.so oo2core_dummy.o
-rm oo2core_dummy.o
+gcc -shared -fpic -Wall -Werror -pedantic -o liboo2corelinux64.so oo2core_dummy.c
 mv liboo2corelinux64.so ../ext_lib/
