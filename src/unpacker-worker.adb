@@ -1,6 +1,7 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams; use Ada.Streams;
 with Ada.Directories; use Ada.Directories;
+with Ada.Exceptions; use Ada.Exceptions;
 with Interfaces.C; use Interfaces.C;
 with Interfaces; use Interfaces;
 with Unchecked_Deallocation;
@@ -62,7 +63,7 @@ package body Unpacker.Worker is
 
 	-- Read data from entry into buffer
 	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and freed when no longer needed by the calling subprogram.
-	procedure Extract_Entry (File_Name : String; E : Entry_Type; BV : Block_Vectors.Vector; Data_B : not null Data_Array_Access ) is
+	procedure Extract_Entry (File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access ) is
 		-- Constants
 		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
@@ -71,7 +72,7 @@ package body Unpacker.Worker is
 
 		-- Variables
 		Current_Block_ID : Unsigned_32 := E.Starting_Block;
-		Current_Block : Block := Block_Vectors.Element (BV, Natural (Current_Block_ID));
+		Current_Block : Block := BV (Natural (Current_Block_ID) + 1);
 		Discard_Size : size_t := 0; -- Used for results of Decompress operation (not needed)
 		Opened_Patch_ID : Unsigned_16 := Current_Block.Patch_ID;
 
@@ -89,7 +90,7 @@ package body Unpacker.Worker is
 		In_S := Stream (In_F);
 
 		while Current_Block_ID <= Last_Block_ID loop
-			Current_Block := Block_Vectors.Element (BV, Natural (Current_Block_ID)); -- Load next block (dup for first block)
+			Current_Block := BV (Natural (Current_Block_ID) + 1); -- Load next block
 
 			declare
 				Block_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
@@ -170,14 +171,14 @@ package body Unpacker.Worker is
 
 	-- Task Definition for Parallel Extractions
 	task type Extract_Task is
-		entry Start (File_Name : String; Path : String;  E : Entry_Type; BV : Block_Vectors.Vector);
+		entry Start (File_Name : String; Path : String;  E : Entry_Type; BV : Block_Array);
 	end Extract_Task;
 
 	task body Extract_Task is
 		Task_File_Name : String_Access;
 		Task_Path : String_Access;
 		Task_E : Entry_Type;
-		Task_BV : Block_Vectors.Vector;
+		Task_BV : Block_Array_Access;
 
 		Data_B : Data_Array_Access;
 
@@ -186,16 +187,16 @@ package body Unpacker.Worker is
 	begin
 		loop
 			select
-				accept Start (File_Name : String; Path : String;  E : Entry_Type; BV : Block_Vectors.Vector) do
+				accept Start (File_Name : String; Path : String;  E : Entry_Type; BV : Block_Array) do
 					Task_File_Name := new String'(File_Name);
 					Task_Path := new String'(Path);
 					Task_E := E;
-					Task_BV := BV;
+					Task_BV := new Block_Array'(BV);
 				end Start;
 
 				-- Fill Buffer
 				Data_B := new Data_Array (1 .. Natural (Task_E.File_Size));
-				Extract_Entry (Task_File_Name.all, Task_E, Task_BV, Data_B);	
+				Extract_Entry (Task_File_Name.all, Task_E, Task_BV.all, Data_B);	
 
 				-- Write Data
 				Create (O, Out_File, Task_Path.all);
@@ -203,7 +204,8 @@ package body Unpacker.Worker is
 				Data_Array'Write (OS, Data_B.all);
 				Close (O);
 
-				-- Free Buffer and Strings
+				-- Free Buffers and Strings
+				Free (Task_BV);
 				Free (Data_B);
 				Free (Task_File_Name);
 				Free (Task_Path);
@@ -211,6 +213,9 @@ package body Unpacker.Worker is
 				terminate;
 			end select;
 		end loop;
+	exception
+		when E : others =>
+			Put_Line (Exception_Message (E));
 			
 	end Extract_Task;
 
@@ -218,13 +223,13 @@ package body Unpacker.Worker is
 	MAX_TASKS : constant Positive := 11; -- TODO Add adjustment
 	Extract_Tasks : array (1 .. MAX_TASKS) of Extract_Task;
 
-	procedure Delegate_Extract_Task (F : String; P : String; E : Entry_Type; B : Block_Vectors.Vector) is
+	procedure Delegate_Extract_Task (F : String; P : String; E : Entry_Type; BV : Block_Array) is
 	begin
 		Outer:
 		loop
 			for I of Extract_Tasks loop
 				select
-					I.Start (F, P, E, B);
+					I.Start (F, P, E, BV);
 					exit Outer;
 				else
 					null; -- If not available to start, keep checking
@@ -235,7 +240,7 @@ package body Unpacker.Worker is
 	end Delegate_Extract_Task;
 
 	-- Extract files
-	procedure Extract (File_Name : String; Output_Dir : String; EV : Entry_Vectors.Vector; BV : Block_Vectors.Vector; H : Header) is
+	procedure Extract (File_Name : String; Output_Dir : String; EV : Entry_Array; BV : Block_Array; H : Header) is
 		-- Constants necessary for extraction
 		WEM_TYPE : constant Unsigned_8 := (case Mode is
 			when prebl | postbl => 26,
@@ -279,15 +284,15 @@ package body Unpacker.Worker is
 				end;
 			end if;
 			
-			C := C + 1; -- Increment iterator
+			C := C + 1;
 		end loop;
 	end Extract;
 
 	-- Primary unpacker function
 	procedure Unpack (Stream : in Stream_Access; File : in out Stream_IO.File_Type; File_Name : in String; Output_Dir : in String) is
 		H : constant Header := Read_Header (Stream);
-		E : Entry_Vectors.Vector;
-		B : Block_Vectors.Vector;
+		E : Entry_Array (1 .. Natural (H.Entry_Table_Size));
+		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
 	begin
 		-- TODO Debug
 --		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)

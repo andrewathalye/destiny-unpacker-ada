@@ -6,7 +6,7 @@ package body Unpacker.Package_File is
 	type Discard_Array is array (Natural range <>) of Unsigned_8;
 
 	-- Read Blocks
-	procedure Read_Blocks (S : Stream_Access; F : File_Type; V : out Block_Vectors.Vector; H : Header) is
+	procedure Read_Blocks (S : Stream_Access; F : File_Type; V : out Block_Array; H : Header) is
 
 		-- Block Raw Type
 		-- May be read from Stream
@@ -26,23 +26,27 @@ package body Unpacker.Package_File is
 		end record;
 
 		R : Raw_Block (Mode);
-		I : Unsigned_32 := H.Block_Table_Offset;
+		File_Index : Unsigned_32 := H.Block_Table_Offset;
+		Array_Index : Natural := V'First;
 		SIZE : constant Unsigned_32 := (if Mode = d1 then 32 else 48); -- D1 blocks lack GCM tag
 		BOUND : constant Unsigned_32 := H.Block_Table_Offset + H.Block_Table_Size * SIZE;
 	begin
-		Set_Index (F, Positive_Count (I + 1)); -- Index starts with 1
-		while I < BOUND loop	
+		Set_Index (F, Positive_Count (File_Index + 1)); -- Index starts with 1
+		while File_Index < BOUND loop	
 			Raw_Block'Read (S, R);
-			Block_Vectors.Append (V, (R.Offset, R.Size, R.Patch_ID, R.Bit_Flag, (case Mode is
+			V (Array_Index) := (R.Offset, R.Size, R.Patch_ID, R.Bit_Flag, (case Mode is
 				when prebl | postbl => R.GCM,
-				when d1 => Blank_GCM)));
-			I := I + SIZE;
+				when d1 => Blank_GCM));
+
+			-- Increment indices
+			File_Index := File_Index + SIZE;
+			Array_Index := Array_Index + 1;
 			-- Text_IO.Put_Line ("Offset " & Unsigned_32'Image (R.Offset) & " Size " & Unsigned_32'Image (R.Size) & " Patch_ID " & Unsigned_16'Image (R.Patch_ID) & " Bit Flag " & Unsigned_16'Image (R.Bit_Flag)); -- TODO Debug
 		end loop;
 	end Read_Blocks;
 
 	-- Read Entries
-	procedure Read_Entries (S : Stream_Access; F : File_Type; V : out Entry_Vectors.Vector; H : Header) is
+	procedure Read_Entries (S : Stream_Access; F : File_Type; V : out Entry_Array; H : Header) is
 		type Raw_Entry is record
 			A : Unsigned_32;
 			B : Unsigned_32;
@@ -52,12 +56,13 @@ package body Unpacker.Package_File is
 
 		R : Raw_Entry;
 		E : Entry_Type;
-		I : Unsigned_32 := H.Entry_Table_Offset;
+		File_Index : Unsigned_32 := H.Entry_Table_Offset;
+		Array_Index : Natural := V'First;
 	begin
 		-- TODO Debug Put_Line ("[Debug] Start reading entries from " & Unsigned_32'Image (I)); -- TODO Debug
-		Set_Index (F, Positive_Count (I + 1)); -- Index in Ada starts with 1
+		Set_Index (F, Positive_Count (File_Index + 1)); -- Index in Ada starts with 1
 
-		while I < H.Entry_Table_Offset + H.Entry_Table_Size * 16 loop
+		while File_Index < H.Entry_Table_Offset + H.Entry_Table_Size * 16 loop
 			Raw_Entry'Read (S, R);
 			-- TODO Debug
 			-- Text_IO.Put_Line ("[Debug] A " & Unsigned_32'Image (R.A)
@@ -79,9 +84,12 @@ package body Unpacker.Package_File is
 			E.Starting_Block_Offset := Shift_Left ((Shift_Right (R.C, 14) and 16#3FFF#), 4);
 
 			E.File_Size := Shift_Left (R.D and 16#3FFFFFF#, 4) or (Shift_Right (R.C, 28) and 16#F#);
-			Entry_Vectors.Append (V, E); -- Add Entry to linked list
 
-			I := I + 16;
+			V (Array_Index) := E; -- Add Entry to array
+
+			-- Increment indices
+			File_Index := File_Index + 16;
+			Array_Index := Array_Index + 1;
 
 			-- TODO Debug
 --			Put_Line ("[Debug] Reference " & Unsigned_32'Image (E.Reference)
