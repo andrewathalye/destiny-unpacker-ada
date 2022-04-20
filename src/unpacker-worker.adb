@@ -1,10 +1,12 @@
 with Ada.Text_IO; use Ada.Text_IO;
-with Ada.Streams.Stream_IO; use Ada.Streams; use Ada.Streams.Stream_IO;
+with Ada.Streams; use Ada.Streams;
 with Ada.Directories; use Ada.Directories;
 with Interfaces.C; use Interfaces.C;
+with Interfaces; use Interfaces;
 with Unchecked_Deallocation;
 
--- TODO: Fix compression issue with linoodle; use linoodle;
+with linoodle; use linoodle;
+with oodle; use oodle;
 
 with Unpacker.Crypto; use Unpacker.Crypto;
 with Unpacker.Package_File; use Unpacker.Package_File;
@@ -16,7 +18,6 @@ package body Unpacker.Worker is
 
 	-- Modular I/O types
 	package Unsigned_16_IO is new Modular_IO (Num => Unsigned_16);
-	package Unsigned_32_IO is new Modular_IO (Num => Unsigned_32);
 
 	-- Print Hex String for Unsigned_16
 	function Hex_String (Num : Unsigned_16) return String is
@@ -56,12 +57,12 @@ package body Unpacker.Worker is
 
 	-- Read data from entry into buffer
 	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and freed when no longer needed by the calling subprogram.
-	function Extract_Entry (File_Name : String; E : Entry_Type; BV : Block_Vectors.Vector; Data_B : in out not null Data_Array_Access ) return Boolean is
+	procedure Extract_Entry (File_Name : String; E : Entry_Type; BV : Block_Vectors.Vector; Data_B : not null Data_Array_Access ) is
 		-- Constants
 		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
-		Block_Count : constant Unsigned_32 := Unsigned_32 ((E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE );
-		Last_Block_ID : Unsigned_32 := E.Starting_Block + Block_Count;
+		Block_Count : constant Unsigned_32 :=  (E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE;
+		Last_Block_ID : constant Unsigned_32 := E.Starting_Block + Block_Count;
 
 		-- Variables
 		Current_Block_ID : Unsigned_32 := E.Starting_Block;
@@ -78,11 +79,6 @@ package body Unpacker.Worker is
 		Current_Buffer_Offset : Natural := 0;
 
 	begin
-		-- TODO Debug
-		-- Put_Line ("[Debug] File size: " & Unsigned_32'Image (E.File_Size));
-		-- Put_Line ("[Debug] Current block ID: " & Unsigned_32'Image (Current_Block_ID));
-		-- Put_Line ("[Debug] Last block ID: " & Unsigned_32'Image (Last_Block_Id));
-
 		-- Open first patch file
 		Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
 		In_S := Stream (In_F);
@@ -94,9 +90,6 @@ package body Unpacker.Worker is
 				Block_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 				Decrypt_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 			begin
-				-- TODO Debug
---				Put_Line ("[Debug] Processing block " & Unsigned_32'Image (Current_Block_ID));
-				
 				-- Open correct file if block is in different patch ID
 				if Current_Block.Patch_ID /= Opened_Patch_ID then
 					-- TODO Debug
@@ -113,10 +106,8 @@ package body Unpacker.Worker is
 				Data_Array'Read (In_S, Block_B);
 				
 				if Mode = d1 then
-					if (Current_Block.Bit_Flag and 1) > 0 then
-						-- Discard_Size := OodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
-						Close (In_F); -- TODO Fix decompression
-						return False; -- TODO Fix decompression
+					if (Current_Block.Bit_Flag and 1) > 0 then -- Always uses older LZ compression methods
+						Discard_Size := LinoodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 					else
 						Decompress_B := Block_B;	
 					end if;
@@ -128,22 +119,11 @@ package body Unpacker.Worker is
 					end if;
 
 					if (Current_Block.Bit_Flag and 1) > 0 then
-						-- Put_Line ("[Debug] Now decompressing " & Unsigned_32'Image (Current_Block_ID)); -- TODO Debug
-
-						-- Put_Line ("[Debug] Current Block Size is: " & Unsigned_32'Image (Current_Block.Size)); -- TODO Debug
-
-						-- Messy workaround for linoodle sigsegv TODO
-						-- if not (Current_Block_ID = 14 and Current_Block.Size = 35726)
-						--	and not (Current_Block_ID = 3168 and Current_Block.Size = 17930)
-						--	and not (Current_Block_ID = 3279 and Current_Block.Size = 47312) then
-						--		Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
-						--else
-						--	Put_Line (Standard_Error, "[Error] Encountered block which would have crashed: " & Unsigned_32'Image (Current_Block_ID));
-						-- end if;
---						Put_Line ("[Debug] Decompressed size is: " & size_t'Image (Discard_Size)); -- TODO Debug
---
-						Close (In_F); -- TODO Fix decompression
-						return False; -- TODO Fix decompression
+						if Mode = prebl then
+							Discard_Size := LinoodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						else -- Post-BL, so newer compression methods
+							Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						end if;
 					else
 						Decompress_B (Decrypt_B'Range) := Decrypt_B; -- Could be shorter in theory if last block
 					end if;
@@ -165,7 +145,7 @@ package body Unpacker.Worker is
 						end if;
 
 						Data_B (1 .. Copy_Size) := Decompress_B (Natural (E.Starting_Block_Offset) + 1 .. Natural (E.Starting_Block_Offset) + Copy_Size);	
-						Current_Buffer_Offset := Current_Buffer_Offset + Natural (Copy_Size);
+						Current_Buffer_Offset := Current_Buffer_Offset + Copy_Size;
 					end;
 				-- If last block
 				elsif Current_Block_ID = Last_Block_ID then
@@ -181,7 +161,6 @@ package body Unpacker.Worker is
 		end loop;
 
 		Close (In_F); -- Make sure Patch file is closed before returning
-		return True; 
 	end Extract_Entry;
 
 	-- Extract files
@@ -220,16 +199,14 @@ package body Unpacker.Worker is
 					-- Put_Line ("WEM: " & Decimal_String (E.Reference) & ".wem");
 					if not Exists (Path) then -- Don't overwrite existing file
 						-- Fill Buffer
-						if Extract_Entry (File_Name, E, BV, Data_B) then -- Successfully extracted
-							-- Write Data
-							Create (O, Out_File, Path);
-							OS := Stream (O);
-							Data_Array'Write (OS, Data_B.all);
-							Close (O);
-							Free (Data_B);
-						else
-							Put_Line (Standard_Error, "[Decompress Error] Failed to extract output WEM " & Path);
-						end if;
+						Extract_Entry (File_Name, E, BV, Data_B);
+
+						-- Write Data
+						Create (O, Out_File, Path);
+						OS := Stream (O);
+						Data_Array'Write (OS, Data_B.all);
+						Close (O);
+						Free (Data_B);
 					end if;
 				end;
 			elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
@@ -240,16 +217,14 @@ package body Unpacker.Worker is
 					-- Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
 					if not Exists (Path) then -- Save time and don't overwrite existing files
 						-- Fill Buffer
-						if Extract_Entry (File_Name, E, BV, Data_B) then -- Successfully extracted
-							-- Write Data
-							Create (O, Out_File, Path);
-							OS := Stream (O);
-							Data_Array'Write (OS, Data_B.all);
-							Close (O);
-							Free (Data_B);
-						else
-							Put_Line (Standard_Error, "[Decompress Error] Failed to extract output BNK " & Path);
-						end if;
+						Extract_Entry (File_Name, E, BV, Data_B);
+
+						-- Write Data
+						Create (O, Out_File, Path);
+						OS := Stream (O);
+						Data_Array'Write (OS, Data_B.all);
+						Close (O);
+						Free (Data_B);
 					end if;
 				end;
 			end if;
@@ -260,7 +235,7 @@ package body Unpacker.Worker is
 
 	-- Primary unpacker function
 	procedure Unpack (Stream : in Stream_Access; File : in out Stream_IO.File_Type; File_Name : in String; Output_Dir : in String) is
-		H : Header := Read_Header (Stream);
+		H : constant Header := Read_Header (Stream);
 		E : Entry_Vectors.Vector;
 		B : Block_Vectors.Vector;
 	begin

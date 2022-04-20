@@ -1,26 +1,13 @@
 Destiny Linux Unpacker 
 ======================
 
-This is a work-in-progress Linux unpacker for Destiny 1 and 2, written in Ada.  
+This is a fully-functional Linux unpacker for Destiny 1 and 2, written in Ada.  
 It makes use of Linoodle (https://www.github.com/McSimp/linoodle) in order to
-interface with Oodle, the compressor used by Destiny. If you are aware of a native
-version of Oodle, please let me know - this wrapper is not quite 100% compatible with
-all blocks.
+interface with Oodle, the compressor used by Destiny.
 
-Notice
-------
-
-The program is completed, but an apparent bug in Linoodle or my pointer code is causing
-certain package files to fail to decompress and crash the program. I've checked the size,
-position, addresses, and decrypted results, and they seem to match with Windows.
-
-If you think you can help, please get in touch via Pull Requests or Issues to let me know what
-works. I suspect the issue is somewhere in Linoodle - maybe it doesn't implement quite enough of the Windows
-API to handle every outcome for Oodle's decompression, but I am not well-versed in Windows debugging so I can't
-be sure.
-
-In the meantime, I have disabled decompression support in order to avoid random and unpredictable errors.
-I apologise for any inconvenience resulting from this.
+Note: To comply with the terms of the Bungie EULA, only use this program for personal
+purposes and ensure that you do not publish the contents of any Destiny package files
+without Bungie's explicit permission.
 
 Setup and Usage
 ---------------
@@ -28,9 +15,21 @@ Setup and Usage
 If you would like to build from source, see that section. Otherwise,
 download a release from the Releases section (if available).
 
-You need to copy the file "oo2core_X_win64.dll" into the same folder as the executable.
-X is 3 for Shadowkeep and Destiny 1, and 8 for Beyond Light and later versions.
-There are various ways to obtain this file, including downloading a Shadowkeep / Beyond Light build of Destiny 2.
+Destiny 1 and 2 packages are compressed with a library called Oodle, which is
+distributed under an all rights reserved license and thus cannot be included.
+
+In order to decompress files, do the following:
+	- If you intend to use Destiny 1 or Destiny 2 before Beyond Light,
+	acquire oo2core_3_win64.dll and place it in the same directory as the tool.
+	- If you intend to use Destiny 2 after Beyond Light,
+	acquire oo2corelinux64.so.9 and replace the dummy file in ext_lib.
+To acquire oo2core_3_win64.dll, just look inside the bin directory of the Destiny 2 Shadowkeep
+depot folder.
+To acquire oo2corelinux64.so.9, follow the instructions at https://github.com/gildor2/UEViewer/tree/master/libs/oodle.
+>	Note: This program is for use for educational purposes only.
+>	RAD Game Tools, Epic Game Tools, etc. reserve the right to define the terms under which users may
+>	use Oodle and related software, to which they own the copyright.
+>	If unsure, you might consider purchasing a license to Oodle 2.9.
 
 The program is used as follows:
 `./destinyunpacker [d1, prebl, or postbl] PACKAGES_DIRECTORY OUTPUT_DIRECTORY`
@@ -43,7 +42,11 @@ Use `./ext_src/fetch_and_compile.sh` to setup linoodle (it requires Ninja, and C
 OpenSSL (libcrypto) is needed for encryption. This can be manually removed if you only need D1 support.
 Finally, run `gprbuild -Pdestiny_unpacker` to build an executable.
 
-Note: Even though this program is licensed under the GPL, its linking with Oodle makes the actual license somewhat murky.
+Follow the instructions above to acquire Oodle support. This is technically not necessary if you only want to extract WEM files.
+If you do not wish to include oo2corelinux64.so.9, make a blank so file containing the symbol "OodleLZ_Decompress" or simply comment out the calls in unpacker-worker.adb.
+Doing this will effectively remove post-Beyond Light support, however it may be necessary if you are unable to acquire the necessary libraries.
+
+Note: Even though this program is licensed under the GPL, its linking with Oodle makes the actual license unclear.
 I optionally make this program available under the terms of the LGPL for anyone whom that would assist.
 
 Credit
@@ -54,3 +57,6 @@ project would never have been possible.
 
 https://www.github.com/nblockbuster/DestinyUnpackerCPP and
 https://www.github.com/MontagueM/DestinyUnpackerCPP
+
+Additionally, I give my thanks to McSimp and https://github.com/McSimp/linoodle, without which
+I would have been unable to decompress txtp files on Linux

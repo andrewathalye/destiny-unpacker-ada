@@ -1,5 +1,6 @@
 with "external_openssl.gpr";
--- TODO: Fix compression problem with "external_linoodle.gpr";
+with "external_linoodle.gpr";
+with "external_oodle.gpr";
 
 project Destiny_Unpacker is
 	for Languages use ("Ada");
@@ -12,7 +13,11 @@ project Destiny_Unpacker is
 		for Executable ("main.adb") use "destinyunpacker";
 	end Builder;
 
-	package Linker is
-		for Switches ("Ada") use ("-O2");
-	end Linker;
+	package Compiler is
+		for Switches ("Ada") use ("-gnatwa", "-gnatVa", "-O2");
+	end Compiler;
+
+	package Binder is
+		for Switches ("Ada") use ("-shared");
+	end Binder;
 end Destiny_Unpacker;
