@@ -43,11 +43,11 @@ OpenSSL (libcrypto) is needed for encryption. This can be manually removed if yo
 Finally, run `gprbuild -Pdestiny_unpacker` to build an executable.
 
 Follow the instructions above to acquire Oodle support. This is technically not necessary if you only want to extract WEM files.  
-If you do not wish to include oo2corelinux64.so.9, run ./ext_src/build_oo2coredummy.sh
+If you do not wish to include oo2corelinux64.so.9, run `./ext_src/build_oo2coredummy.sh`  
 Doing this will effectively remove post-Beyond Light support, however it may be necessary if you are unable to acquire the necessary libraries.
 
-Note: Even though this program is licensed under the GPL, its linking with Oodle makes the actual license unclear.
-I optionally make this program available under the terms of the LGPL for anyone whom that would assist.
+>	Note: Even though this program is licensed under the GPL, its linking with Oodle makes the actual license unclear.
+>	I optionally make this program available under the terms of the LGPL for anyone whom that would assist.
 
 Credit
 ------
