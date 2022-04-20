@@ -38,12 +38,12 @@ Building from Source
 --------------------
 
 To build from source, you'll need GNAT 2021 (FSF or GPL).
-Use `./ext_src/fetch_and_compile.sh` to setup linoodle (it requires Ninja, and CMake)
+Use `./ext_src/build_linoodle.sh` to setup linoodle (it requires Ninja, and CMake)
 OpenSSL (libcrypto) is needed for encryption. This can be manually removed if you only need D1 support.
 Finally, run `gprbuild -Pdestiny_unpacker` to build an executable.
 
 Follow the instructions above to acquire Oodle support. This is technically not necessary if you only want to extract WEM files.  
-If you do not wish to include oo2corelinux64.so.9, make a blank so file containing the symbol "OodleLZ_Decompress" or simply comment out the calls in unpacker-worker.adb.  
+If you do not wish to include oo2corelinux64.so.9, run ./ext_src/build_oo2coredummy.sh
 Doing this will effectively remove post-Beyond Light support, however it may be necessary if you are unable to acquire the necessary libraries.
 
 Note: Even though this program is licensed under the GPL, its linking with Oodle makes the actual license unclear.
