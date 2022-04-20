@@ -1,5 +1,3 @@
-with Ada.Text_IO; use Ada.Text_IO;
-
 with OpenSSL; use OpenSSL;
 
 with Unpacker; use Unpacker;
@@ -48,7 +46,7 @@ package body Unpacker.Crypto is
 		Cipher_Exception : exception;
 
 		-- Cipher Internals
-		Cipher_Context : access EVP_CIPHER_CTX := EVP_CIPHER_CTX_new;
+		Cipher_Context : constant access EVP_CIPHER_CTX := EVP_CIPHER_CTX_new;
 		GCM : aliased GCM_Tag := B.GCM; -- Allow passing to C function
 
 		Out_Length : int_access := new int;

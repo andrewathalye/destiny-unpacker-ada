@@ -14,7 +14,12 @@ with Unpacker.Package_File; use Unpacker.Package_File;
 package body Unpacker.Worker is
 	-- Common Buffer Type
 	type Data_Array_Access is access Data_Array;
+
+	-- Constant String Access
+	type String_Access is access String;
+
 	procedure Free is new Unchecked_Deallocation (Object => Data_Array, Name => Data_Array_Access);
+	procedure Free is new Unchecked_Deallocation (Object => String, Name => String_Access);
 
 	-- Modular I/O types
 	package Unsigned_16_IO is new Modular_IO (Num => Unsigned_16);
@@ -80,7 +85,7 @@ package body Unpacker.Worker is
 
 	begin
 		-- Open first patch file
-		Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
+		Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
 		In_S := Stream (In_F);
 
 		while Current_Block_ID <= Last_Block_ID loop
@@ -96,7 +101,7 @@ package body Unpacker.Worker is
 					Put_Line ("[Debug] Opening " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
 
 					Close (In_F);
-					Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
+					Open (In_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
 					In_S := Stream (In_F);
 
 					Opened_Patch_ID := Current_Block.Patch_ID;
@@ -163,8 +168,74 @@ package body Unpacker.Worker is
 		Close (In_F); -- Make sure Patch file is closed before returning
 	end Extract_Entry;
 
+	-- Task Definition for Parallel Extractions
+	task type Extract_Task is
+		entry Start (File_Name : String; Path : String;  E : Entry_Type; BV : Block_Vectors.Vector);
+	end Extract_Task;
+
+	task body Extract_Task is
+		Task_File_Name : String_Access;
+		Task_Path : String_Access;
+		Task_E : Entry_Type;
+		Task_BV : Block_Vectors.Vector;
+
+		Data_B : Data_Array_Access;
+
+		O : Stream_IO.File_Type;
+		OS : Stream_Access;
+	begin
+		loop
+			select
+				accept Start (File_Name : String; Path : String;  E : Entry_Type; BV : Block_Vectors.Vector) do
+					Task_File_Name := new String'(File_Name);
+					Task_Path := new String'(Path);
+					Task_E := E;
+					Task_BV := BV;
+				end Start;
+
+				-- Fill Buffer
+				Data_B := new Data_Array (1 .. Natural (Task_E.File_Size));
+				Extract_Entry (Task_File_Name.all, Task_E, Task_BV, Data_B);	
+
+				-- Write Data
+				Create (O, Out_File, Task_Path.all);
+				OS := Stream (O);
+				Data_Array'Write (OS, Data_B.all);
+				Close (O);
+
+				-- Free Buffer and Strings
+				Free (Data_B);
+				Free (Task_File_Name);
+				Free (Task_Path);
+			or
+				terminate;
+			end select;
+		end loop;
+			
+	end Extract_Task;
+
+	-- Array of Extract Tasks
+	MAX_TASKS : constant Positive := 11; -- TODO Add adjustment
+	Extract_Tasks : array (1 .. MAX_TASKS) of Extract_Task;
+
+	procedure Delegate_Extract_Task (F : String; P : String; E : Entry_Type; B : Block_Vectors.Vector) is
+	begin
+		Outer:
+		loop
+			for I of Extract_Tasks loop
+				select
+					I.Start (F, P, E, B);
+					exit Outer;
+				else
+					null; -- If not available to start, keep checking
+				end select;
+			end loop;
+			delay 0.1; -- Reduce idle looping
+		end loop Outer;
+	end Delegate_Extract_Task;
+
 	-- Extract files
-	procedure Extract (File_Name : in String; Output_Dir : in String; EV : in Entry_Vectors.Vector; BV : in Block_Vectors.Vector; H : in Header) is
+	procedure Extract (File_Name : String; Output_Dir : String; EV : Entry_Vectors.Vector; BV : Block_Vectors.Vector; H : Header) is
 		-- Constants necessary for extraction
 		WEM_TYPE : constant Unsigned_8 := (case Mode is
 			when prebl | postbl => 26,
@@ -184,9 +255,6 @@ package body Unpacker.Worker is
 
 		-- Variables
 		C : Natural := 0; -- Count (acts as iterator)
-
-		O : Stream_IO.File_Type; -- Output File
-		OS : Stream_Access; -- Output Stream
 	begin
 		-- Loop over Entries in Vector
 		for E of EV loop
@@ -194,37 +262,19 @@ package body Unpacker.Worker is
 			if E.Entry_Type = WEM_TYPE and E.Entry_Subtype = WEM_SUBTYPE then	
 				declare
 					Path : constant String := Output_Dir & "/wem/" & Decimal_String (E.Reference) & ".wem";
-					Data_B : Data_Array_Access := new Data_Array (1 .. Natural (E.File_Size));
 				begin
 					-- Put_Line ("WEM: " & Decimal_String (E.Reference) & ".wem");
 					if not Exists (Path) then -- Don't overwrite existing file
-						-- Fill Buffer
-						Extract_Entry (File_Name, E, BV, Data_B);
-
-						-- Write Data
-						Create (O, Out_File, Path);
-						OS := Stream (O);
-						Data_Array'Write (OS, Data_B.all);
-						Close (O);
-						Free (Data_B);
+						Delegate_Extract_Task (File_Name, Path, E, BV);
 					end if;
 				end;
 			elsif E.Entry_Type = BNK_TYPE and (E.Entry_Subtype = BNK_SUBTYPE or (Mode = d1 and E.Entry_Subtype = BNK_SUBTYPE_EXTRA)) then
 				declare
 					Path : constant String := Output_Dir & "/bnk/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk";
-					Data_B : Data_Array_Access := new Data_Array (1 .. Natural (E.File_Size));
 				begin
 					-- Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
 					if not Exists (Path) then -- Save time and don't overwrite existing files
-						-- Fill Buffer
-						Extract_Entry (File_Name, E, BV, Data_B);
-
-						-- Write Data
-						Create (O, Out_File, Path);
-						OS := Stream (O);
-						Data_Array'Write (OS, Data_B.all);
-						Close (O);
-						Free (Data_B);
+						Delegate_Extract_Task (File_Name, Path, E, BV);
 					end if;
 				end;
 			end if;
