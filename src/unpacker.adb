@@ -6,6 +6,23 @@ with Ada.Directories; use Ada.Directories;
 with Unpacker.Worker; use Unpacker.Worker;
 
 package body Unpacker is
+	-- Check if specified package has the highest patch ID
+	function Is_Latest_Patch_ID (F : String) return Boolean is
+		Current_Patch_ID : constant Natural := Natural'Value (F (F'Last - 4 .. F'Last - 4));
+		Base : constant String := F (F'First .. F'Last -5);
+	begin
+		if Current_Patch_ID = 9 then
+			return True;
+		end if;
+
+		for I in Current_Patch_ID + 1 .. 9 loop
+			if Exists (Base & Natural'Image (I) (2 .. 2) & ".pkg") then
+				return False;
+			end if;
+		end loop;
+		return True;
+	end Is_Latest_Patch_ID;
+
 	procedure Unpacker_Main is
 		SE : Search_Type;
 		SA : Stream_Access;
@@ -15,7 +32,7 @@ package body Unpacker is
 		Invalid_Arguments : exception;
 
 	begin
-		Put_Line ("Destiny Linux Unpacker v0.8");
+		Put_Line ("Destiny Linux Unpacker v0.9");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then
@@ -57,10 +74,12 @@ package body Unpacker is
 			Start_Search (SE, Package_Dir, "*.pkg");
 			while More_Entries (SE) loop
 				Get_Next_Entry (SE, D);
-				Put_Line ("[Info] Unpacking " & Simple_Name (D));
-				Open (F, In_File, Full_Name (D));
-				SA := Stream (F);
-				Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);
+				if Is_Latest_Patch_ID (Full_Name (D)) then
+					Put_Line ("[Info] Unpacking " & Simple_Name (D));
+					Open (F, In_File, Full_Name (D));
+					SA := Stream (F);
+					Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);
+				end if;
 			end loop;
 			End_Search (SE);
 		end;

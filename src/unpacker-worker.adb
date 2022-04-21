@@ -1,7 +1,7 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams; use Ada.Streams;
 with Ada.Directories; use Ada.Directories;
-with Ada.Exceptions; use Ada.Exceptions;
+with Ada.Characters.Handling; use Ada.Characters.Handling;
 with Interfaces.C; use Interfaces.C;
 with Interfaces; use Interfaces;
 with Unchecked_Deallocation;
@@ -52,7 +52,7 @@ package body Unpacker.Worker is
 			O (Pad + I - First + O'First) := S (I);
 		end loop;
 
-		return O;
+		return To_Lower (O);
 	end Hex_String;
 
 	-- Print Decimal String for Unsigned_32
@@ -172,6 +172,7 @@ package body Unpacker.Worker is
 	-- Task Definition for Parallel Extractions
 	task type Extract_Task is
 		entry Start (File_Name : String; Path : String;  E : Entry_Type; BV : Block_Array);
+		entry Done;
 	end Extract_Task;
 
 	task body Extract_Task is
@@ -210,13 +211,11 @@ package body Unpacker.Worker is
 				Free (Task_File_Name);
 				Free (Task_Path);
 			or
+				accept Done;
+			or
 				terminate;
 			end select;
 		end loop;
-	exception
-		when E : others =>
-			Put_Line (Exception_Message (E));
-			
 	end Extract_Task;
 
 	-- Array of Extract Tasks
@@ -235,7 +234,7 @@ package body Unpacker.Worker is
 					null; -- If not available to start, keep checking
 				end select;
 			end loop;
-			delay 0.1; -- Reduce idle looping
+			delay 0.05; -- Reduce idle looping
 		end loop Outer;
 	end Delegate_Extract_Task;
 
@@ -268,6 +267,7 @@ package body Unpacker.Worker is
 				declare
 					Path : constant String := Output_Dir & "/wem/" & Decimal_String (E.Reference) & ".wem";
 				begin
+					-- TODO Debug
 					-- Put_Line ("WEM: " & Decimal_String (E.Reference) & ".wem");
 					if not Exists (Path) then -- Don't overwrite existing file
 						Delegate_Extract_Task (File_Name, Path, E, BV);
@@ -277,6 +277,7 @@ package body Unpacker.Worker is
 				declare
 					Path : constant String := Output_Dir & "/bnk/" & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk";
 				begin
+					-- TODO Debug
 					-- Put_Line ("BNK: " & Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) & ".bnk");
 					if not Exists (Path) then -- Save time and don't overwrite existing files
 						Delegate_Extract_Task (File_Name, Path, E, BV);
@@ -285,6 +286,11 @@ package body Unpacker.Worker is
 			end if;
 			
 			C := C + 1;
+		end loop;
+
+		-- Wait until all extraction tasks are complete
+		for I of Extract_Tasks loop
+			I.Done;
 		end loop;
 	end Extract;
 
