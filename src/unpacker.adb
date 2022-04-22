@@ -70,6 +70,16 @@ package body Unpacker is
 				Create_Directory (Output_Dir & "/bnk/");
 			end if;
 
+			-- Create USM dir if necessary
+			if not Exists (Output_Dir & "/usm/") then
+				Create_Directory (Output_Dir & "/usm/");
+			end if;
+
+			-- Create TXT dir if necessary
+			if not Exists (Output_Dir & "/txt/") then
+				Create_Directory (Output_Dir & "/txt/");
+			end if;
+
 			-- Iterate over pkg files
 			Start_Search (SE, Package_Dir, "*.pkg");
 			while More_Entries (SE) loop

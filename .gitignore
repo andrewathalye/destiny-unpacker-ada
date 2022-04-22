@@ -2,7 +2,7 @@ ext_lib
 ext_src/linoodle
 oo2core_3_win64.dll
 obj
-output
-packages
+output*
+packages*
 
 destinyunpacker
