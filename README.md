@@ -5,9 +5,10 @@ This is a fully-functional Linux unpacker for Destiny 1 and 2, written in Ada.
 It makes use of Linoodle (https://www.github.com/McSimp/linoodle) in order to
 interface with Oodle, the compressor used by Destiny.
 
-Note: To comply with the terms of the Bungie EULA, only use this program for personal
-purposes and ensure that you do not publish the contents of any Destiny package files
-without Bungie's explicit permission.
+>	Note: To comply with legal requirements, only use this program for personal,
+>	educative purposes and to bolster interoperability of Destiny (2) with other
+>	programs. Do not publish the contents of any Destiny package files without
+>	Bungie's explicit permission.
 
 Setup and Usage
 ---------------
