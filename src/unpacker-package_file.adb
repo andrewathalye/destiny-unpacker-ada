@@ -192,6 +192,7 @@ package body Unpacker.Package_File is
 				--when 16#00000000# => return TERRAIN;
 				--when 16#00000000# => return MATERIAL;
 				--when 16#80808D54# => return AUDIO_REF;
+				when 16#FFFFFFFF# => JUNK,
 				when others => UNK),
 		when postbl =>
 			(case R is
@@ -207,6 +208,7 @@ package body Unpacker.Package_File is
 				when 16#80806C81# => TERRAIN,
 				when 16#80806DAA# => MATERIAL,
 				when 16#808097B8# => AUDIO_REF,
+				--when 16#00000000# => DIALOG;
 				when others => UNK));
 
 	function To_Type (T : Unsigned_8) return Entry_Type_Type is

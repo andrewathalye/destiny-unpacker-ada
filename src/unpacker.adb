@@ -32,7 +32,7 @@ package body Unpacker is
 		Invalid_Arguments : exception;
 
 	begin
-		Put_Line ("Destiny Linux Unpacker v1.0");
+		Put_Line ("Destiny Linux Unpacker v1.1");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then
@@ -55,29 +55,10 @@ package body Unpacker is
 				return;
 			end if;
 
-			if not Exists (Output_Dir) then -- Output dir
+			-- Create Output Dir if necessary
+			if not Exists (Output_Dir) then
 				Create_Directory (Output_Dir);
 				
-			end if;
-
-			-- Create WEM dir if necessary
-			if not Exists (Output_Dir & "/wem/") then
-				Create_Directory (Output_Dir & "/wem/");
-			end if;
-
-			-- Create BNK dir if necessary
-			if not Exists (Output_Dir & "/bnk/") then
-				Create_Directory (Output_Dir & "/bnk/");
-			end if;
-
-			-- Create USM dir if necessary
-			if not Exists (Output_Dir & "/usm/") then
-				Create_Directory (Output_Dir & "/usm/");
-			end if;
-
-			-- Create TXT dir if necessary
-			if not Exists (Output_Dir & "/txt/") then
-				Create_Directory (Output_Dir & "/txt/");
 			end if;
 
 			-- Iterate over pkg files

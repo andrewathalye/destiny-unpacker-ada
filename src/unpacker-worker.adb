@@ -25,6 +25,20 @@ package body Unpacker.Worker is
 	-- Modular I/O types
 	package Unsigned_16_IO is new Modular_IO (Num => Unsigned_16);
 
+	-- Get Language ID (or "") from file name
+	function Get_Language_ID (File_Name : String) return String is
+	begin
+		if File_Name'Length < 23 then -- Minimum length for w64_audio_XXXX_code_0.pkg	
+			return "";
+		end if;
+
+		if File_Name (File_Name'First .. File_Name'First + 8) /= "w64_audio" then
+			return "";
+		end if;
+
+		return File_Name (File_Name'First + 15 .. File_Name'Last - 6);
+	end Get_Language_ID;
+
 	-- Print Hex String for Unsigned_16
 	function Hex_String (Num : Unsigned_16) return String is
 		S : String (1 .. 8); -- 16#XXXX#
@@ -63,7 +77,7 @@ package body Unpacker.Worker is
 
 	-- Read data from entry into buffer
 	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and freed when no longer needed by the calling subprogram.
-	procedure Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access ) is
+	function Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access) return Boolean is
 		-- Constants
 		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
@@ -88,6 +102,11 @@ package body Unpacker.Worker is
 	begin
 		-- Open first patch file if not already open
 		if File_Name /= Determine_Patch_Name (File_Name, Current_Block.Patch_ID) then
+			-- If patch file does not exist, exit. This could be due to missing language packages. TODO Investigate
+			if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
+				return False;
+			end if;
+
 			Open (Supp_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
 			In_S := Stream (Supp_F);
 			Supplemental_File := True;
@@ -98,20 +117,29 @@ package body Unpacker.Worker is
 		while Current_Block_ID <= Last_Block_ID loop
 			Current_Block := BV (Natural (Current_Block_ID) + 1); -- Load next block
 
+			-- If block size invalid, exit
+			if Current_Block.Size < 1 then
+				return False;
+			end if;
+
 			declare
 				Block_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 				Decrypt_B : aliased Data_Array (1 .. Natural (Current_Block.Size));
 			begin
 				-- Open correct file if block is in different patch ID
 				if Current_Block.Patch_ID /= Opened_Patch_ID then
-					Put_Line ("[Debug] Opening " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID));
-
 					-- If supplemental patch had already been opened
 					if Supplemental_File then
 						Close (Supp_F);
 					end if;
 
+					-- If supplemental patch file does not exist, exit. This could be due to missing language packages TODO Investigate
+					if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
+						return False;
+					end if;
+
 					Open (Supp_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
+
 					In_S := Stream (Supp_F);
 					Supplemental_File := True; -- Mark for closing at end of subprogram
 
@@ -184,6 +212,8 @@ package body Unpacker.Worker is
 		if Supplemental_File then
 			Close (Supp_F); -- Make sure extra Patch file is closed before returning
 		end if;
+
+		return True;
 	end Extract_Entry;
 
 	-- Task Definition for Parallel Extractions
@@ -226,13 +256,16 @@ package body Unpacker.Worker is
 
 				-- Fill Buffer
 				Data_B := new Data_Array (1 .. Natural (Task_E.File_Size));
-				Extract_Entry (In_F, Task_File_Name.all, Task_E, Task_BV.all, Data_B);	
 
-				-- Write Data
-				Create (O, Out_File, Task_Path.all);
-				OS := Stream (O);
-				Data_Array'Write (OS, Data_B.all);
-				Close (O);
+				if not Extract_Entry (In_F, Task_File_Name.all, Task_E, Task_BV.all, Data_B) then
+					Put_Line (Standard_Error, "[Error] Failed to extract entry for file: " & Task_Path.all);
+				else
+					-- Write Data
+					Create (O, Out_File, Task_Path.all);
+					OS := Stream (O);
+					Data_Array'Write (OS, Data_B.all);
+					Close (O);
+				end if;
 
 				-- Free Buffers and Strings
 				Free (Data_B);
@@ -270,9 +303,7 @@ package body Unpacker.Worker is
 	end Delegate_Extract_Task;
 
 	-- Extract files
-	procedure Extract (File_Name : String; Output_Dir : String; EV : Entry_Array; BV : Block_Array; H : Header) is
-		
-
+	procedure Extract (File_Name : String; Output_Dir : String; EV : Entry_Array; BV : Block_Array; H : Header; Language_ID : String) is
 		-- Types
 		type Name_Type is (BY_REF, BY_ID);
 
@@ -302,10 +333,21 @@ package body Unpacker.Worker is
 					when THIRD_PARTY =>
 						case Entry_Subtype is
 							when WEM =>
-								Name := BY_REF;
-								Subdir := "wem";
-								Ext := "wem";
+								case Entry_Reference is 
+									when JUNK => -- Some WEM entries in language packages contain no actual audio
+										Should_Extract := False;
+									when others =>
+										if Language_ID'Length = 0 then -- Language audio can share References
+											Name := BY_REF; -- All normal audio uses a unique Reference
+										end if;
+										Subdir := "wem";
+										Ext := "wem";
+								end case;
 							when BNK_IDX_BUF =>
+								if Language_ID'Length /= 0 then -- Banks are not currently useful for language-specfic audio
+									Should_Extract := False;
+								end if;
+
 								Subdir := "bnk";
 								Ext := "bnk";
 							when others =>
@@ -335,10 +377,14 @@ package body Unpacker.Worker is
 
 				-- If should extract, read data and write to file
 				if Should_Extract then
+					if not Exists (Output_Dir & "/" & Subdir) then
+						Create_Directory (Output_Dir & "/" & Subdir);
+					end if;
+
 					declare
-						Path : constant String := Output_Dir & "/" & Subdir & "/" & (if Name = BY_ID then Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference)) & "." & Ext;
+						Path : constant String := Output_Dir & "/" & Subdir & "/" & (if Name = BY_ID then Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference)) & Language_ID & "." & Ext;
 					begin
-						Put_Line ("[Debug] Exporting " & Path); --TODO Debug
+						-- Put_Line ("[Debug] Exporting " & Path); --TODO Debug
 						if not Exists (Path) then
 							Delegate_Extract_Task (Path, E);
 						end if;
@@ -375,6 +421,6 @@ package body Unpacker.Worker is
 		Read_Entries (Stream, File, E, H);
 		Read_Blocks (Stream, File, B, H);
 		Close (File); -- No longer needed directly
-		Extract (File_Name, Output_Dir, E, B, H);
+		Extract (File_Name, Output_Dir, E, B, H, Get_Language_ID (Simple_Name (File_Name)));
 	end Unpack;
 end Unpacker.Worker;
