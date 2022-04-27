@@ -185,7 +185,7 @@ package body Unpacker.Package_File is
 		when d1 =>
 			(case R is
 				when 16#808008BE# => STRING_BNK,
-				--when 16#00000000# => STRING_REF,
+				when 16#8080035A# => STRING_REF,
 				--when 16#00000000# => return STRING_REF_IDX;
 				--when 16#00000000# => return FONT_REF;
 				--when 16#00000000# => return LOAD_ZONE;

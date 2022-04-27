@@ -1,0 +1,4 @@
+Like MontagueM recommended, try searching for package IDs and other familiar
+constants.
+
+I personally use bgrep to help out with this - it is VERY fast!

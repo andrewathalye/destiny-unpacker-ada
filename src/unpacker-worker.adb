@@ -326,7 +326,6 @@ package body Unpacker.Worker is
 								Ext := "ref";
 							when JUNK => Should_Extract := False;
 							when others =>
-								null;
 								--Put_Line ("[Debug] Unknown entry with reference " & Entry_Reference_Type'Image (Entry_Reference) & "(" & Unsigned_32'Image (E.Reference) & ") type " & Entry_Type_Type'Image (Entry_Type) & "(" & Unsigned_8'Image (E.Entry_Type) & ") subtype " & Entry_Subtype_Type'Image (Entry_Subtype) & "(" & Unsigned_8'Image (E.Entry_Subtype) &")"); -- TODO Debug
 								Should_Extract := False;
 						end case;
@@ -365,13 +364,13 @@ package body Unpacker.Worker is
 		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
 	begin
 		-- TODO Debug
-		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)
-			& " Build ID " & Unsigned_32'Image (H.Build_ID)
-			& " Patch ID " & Unsigned_16'Image (H.Patch_ID)
-			& " Entry Table Size " & Unsigned_32'Image (H.Entry_Table_Size)
-			& " Entry Table Offset " & Unsigned_32'Image (H.Entry_Table_Offset)
-			& " Block Table Size " & Unsigned_32'Image (H.Block_Table_Size)
-			& " Block Table Offset " & Unsigned_32'Image (H.Block_Table_Offset));
+--		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)
+--			& " Build ID " & Unsigned_32'Image (H.Build_ID)
+--			& " Patch ID " & Unsigned_16'Image (H.Patch_ID)
+--			& " Entry Table Size " & Unsigned_32'Image (H.Entry_Table_Size)
+--			& " Entry Table Offset " & Unsigned_32'Image (H.Entry_Table_Offset)
+--			& " Block Table Size " & Unsigned_32'Image (H.Block_Table_Size)
+--			& " Block Table Offset " & Unsigned_32'Image (H.Block_Table_Offset));
 		-- TODO Debug
 
 		Modify_Nonce (H); -- Only needed for Destiny 2
