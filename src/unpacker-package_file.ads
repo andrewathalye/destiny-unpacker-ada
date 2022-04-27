@@ -47,9 +47,6 @@ package Unpacker.Package_File is
 		Block_Table_Offset : Unsigned_32;
 	end record;
 
-	-- Buffer Universal Data Type
-	type Data_Array is array (Natural range <>) of Unsigned_8;
-
 	-- Array types for Entry and Block
 	type Entry_Array is array (Natural range <>) of Entry_Type;
 	type Block_Array  is array (Natural range <>) of Block;
@@ -63,6 +60,7 @@ package Unpacker.Package_File is
 	procedure Read_Entries (S : Stream_Access; F : File_Type; V : out Entry_Array; H : Header);
 	function Read_Header (S : in Stream_Access) return Header;
 
+	-- Convert raw value into member of corresponding (version-agnostic) enumerated type
 	function To_Type (R : Unsigned_32) return Entry_Reference_Type;
 	function To_Type (T : Unsigned_8) return Entry_Type_Type;
 	function To_Type (ST : Unsigned_8) return Entry_Subtype_Type;

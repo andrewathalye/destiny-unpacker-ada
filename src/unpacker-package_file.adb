@@ -1,5 +1,5 @@
 with Unpacker; use Unpacker;
--- with Ada.Text_IO; use Ada; -- TODO Debug
+--with Ada.Text_IO; use Ada; -- TODO Debug
 
 package body Unpacker.Package_File is
 	-- Local Types
@@ -7,7 +7,6 @@ package body Unpacker.Package_File is
 
 	-- Read Blocks
 	procedure Read_Blocks (S : Stream_Access; F : File_Type; V : out Block_Array; H : Header) is
-
 		-- Block Raw Type
 		-- May be read from Stream
 		type Raw_Block (Mode : Mode_Type) is record
@@ -15,12 +14,11 @@ package body Unpacker.Package_File is
 			Size : Unsigned_32; -- HEX 4 .. 7
 			Patch_ID : Unsigned_16; -- HEX 8 .. 9
 			Bit_Flag : Unsigned_16; -- HEX A .. B
-
+			SHA_Hash : Discard_Array (16#C# .. 16#1F#);
 			case Mode is
 				when prebl | postbl =>
-					Discard_PR : Discard_Array (16#C# .. 16#1F# );
-					GCM : GCM_Tag;
-				when others => -- D1 does not use encryption
+					GCM : GCM_Tag; -- HEX 20 .. 2F
+				when d1 => -- D1 does not use encryption
 					null;
 			end case;
 		end record;
@@ -28,7 +26,7 @@ package body Unpacker.Package_File is
 		R : Raw_Block (Mode);
 		File_Index : Unsigned_32 := H.Block_Table_Offset;
 		Array_Index : Natural := V'First;
-		SIZE : constant Unsigned_32 := (if Mode = d1 then 32 else 48); -- D1 blocks lack GCM tag
+		SIZE : constant Unsigned_32 := (if Mode = d1 then 16#20# else 16#30#); -- D1 blocks lack GCM tag
 		BOUND : constant Unsigned_32 := H.Block_Table_Offset + H.Block_Table_Size * SIZE;
 	begin
 		Set_Index (F, Positive_Count (File_Index + 1)); -- Index starts with 1
@@ -41,7 +39,14 @@ package body Unpacker.Package_File is
 			-- Increment indices
 			File_Index := File_Index + SIZE;
 			Array_Index := Array_Index + 1;
-			-- Text_IO.Put_Line ("Offset " & Unsigned_32'Image (R.Offset) & " Size " & Unsigned_32'Image (R.Size) & " Patch_ID " & Unsigned_16'Image (R.Patch_ID) & " Bit Flag " & Unsigned_16'Image (R.Bit_Flag)); -- TODO Debug
+
+			-- TODO Debug
+--			Text_IO.Put_Line ("File Index" & Unsigned_32'Image (File_Index)
+--				& " Offset " & Unsigned_32'Image (R.Offset)
+--				& " Size " & Unsigned_32'Image (R.Size)
+--				& " Patch_ID " & Unsigned_16'Image (R.Patch_ID)
+--				& " Bit Flag " & Unsigned_16'Image (R.Bit_Flag));
+			-- TODO Debug
 		end loop;
 	end Read_Blocks;
 
@@ -59,16 +64,16 @@ package body Unpacker.Package_File is
 		File_Index : Unsigned_32 := H.Entry_Table_Offset;
 		Array_Index : Natural := V'First;
 	begin
-		-- TODO Debug Put_Line ("[Debug] Start reading entries from " & Unsigned_32'Image (I)); -- TODO Debug
+--		Text_IO.Put_Line ("[Debug] Start reading entries from " & Unsigned_32'Image (I)); -- TODO Debug
 		Set_Index (F, Positive_Count (File_Index + 1)); -- Index in Ada starts with 1
 
 		while File_Index < H.Entry_Table_Offset + H.Entry_Table_Size * 16 loop
 			Raw_Entry'Read (S, R);
 			-- TODO Debug
-			-- Text_IO.Put_Line ("[Debug] A " & Unsigned_32'Image (R.A)
-			--	& " B " & Unsigned_32'Image (R.B)
-		        --	& " C " & Unsigned_32'Image (R.C)
-		        --	& " D " & Unsigned_32'Image (R.D));
+--			Text_IO.Put_Line ("[Debug] A " & Unsigned_32'Image (R.A)
+--				& " B " & Unsigned_32'Image (R.B)
+--		        	& " C " & Unsigned_32'Image (R.C)
+--		        	& " D " & Unsigned_32'Image (R.D));
 			-- TODO Debug
 			E.Reference := R.A;
 
@@ -92,7 +97,7 @@ package body Unpacker.Package_File is
 			Array_Index := Array_Index + 1;
 
 			-- TODO Debug
---			Put_Line ("[Debug] Reference " & Unsigned_32'Image (E.Reference)
+--			Text_IO.Put_Line ("[Debug] Reference " & Unsigned_32'Image (E.Reference)
 --				& " Entry Type " & Unsigned_8'Image (E.Entry_Type)
 --				& " Entry Subtype " & Unsigned_8'Image (E.Entry_Subtype)
 --				& " Starting Block " & Unsigned_32'Image (E.Starting_Block)
@@ -177,7 +182,22 @@ package body Unpacker.Package_File is
 	-- To_Type functions: return Enum based upon raw entry data
 	function To_Type (R : Unsigned_32) return Entry_Reference_Type is
 	(case Mode is
-		when d1 => UNK ,-- TODO
+		when d1 =>
+			(case R is
+				when 16#808008BE# => STRING_BNK,
+				--when 16#00000000# => STRING_REF,
+				--when 16#00000000# => return STRING_REF_IDX;
+				--when 16#00000000# => return FONT_REF;
+				--when 16#00000000# => return LOAD_ZONE;
+				--when 16#00000000# => return MAIN_MODEL;
+				--when 16#00000000# => return SUBFILES;
+				--when 16#00000000# => return DYN_HEADER;
+				--when 16#00000000# => return ANIMATION;
+				--when 16#00000000# => return TERRAIN;
+				--when 16#00000000# => return MATERIAL;
+				--when 16#00000000# => return AUDIO_REF;
+				when 16#FFFFFFFF# => JUNK,
+				when others => UNK),
 		when prebl =>
 			(case R is
 				when 16#80809A8A# => STRING_BNK,
@@ -191,7 +211,7 @@ package body Unpacker.Package_File is
 				--when 16#00000000# => return ANIMATION;
 				--when 16#00000000# => return TERRAIN;
 				--when 16#00000000# => return MATERIAL;
-				--when 16#80808D54# => return AUDIO_REF;
+				when 16#80808D54# => AUDIO_REF, -- TODO: Test
 				when 16#FFFFFFFF# => JUNK,
 				when others => UNK),
 		when postbl =>
@@ -208,7 +228,7 @@ package body Unpacker.Package_File is
 				when 16#80806C81# => TERRAIN,
 				when 16#80806DAA# => MATERIAL,
 				when 16#808097B8# => AUDIO_REF,
-				--when 16#00000000# => DIALOG;
+				--when 16#FFFFFFFF# => JUNK,
 				when others => UNK));
 
 	function To_Type (T : Unsigned_8) return Entry_Type_Type is

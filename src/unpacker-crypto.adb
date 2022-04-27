@@ -1,11 +1,11 @@
+with Interfaces.C; use Interfaces.C;
+with Unchecked_Deallocation;
+
 with OpenSSL; use OpenSSL;
 
 with Unpacker; use Unpacker;
 with Unpacker.Package_File; use Unpacker.Package_File;
 
-with Interfaces.C; use Interfaces.C;
-
-with Unchecked_Deallocation;
 
 package body Unpacker.Crypto is
 	-- Local Types

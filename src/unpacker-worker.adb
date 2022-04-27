@@ -1,82 +1,20 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams; use Ada.Streams;
 with Ada.Directories; use Ada.Directories;
-with Ada.Characters.Handling; use Ada.Characters.Handling;
+with Ada.Exceptions; use Ada.Exceptions;
 with Interfaces.C; use Interfaces.C;
 with Interfaces; use Interfaces;
-with Unchecked_Deallocation;
 
 with linoodle; use linoodle;
 with oodle; use oodle;
 
 with Unpacker.Crypto; use Unpacker.Crypto;
 with Unpacker.Package_File; use Unpacker.Package_File;
+with Unpacker.Util; use Unpacker.Util;
 
 package body Unpacker.Worker is
-	-- Common Buffer Type
-	type Data_Array_Access is access Data_Array;
-
-	-- Constant String Access
-	type String_Access is access String;
-
-	procedure Free is new Unchecked_Deallocation (Object => Data_Array, Name => Data_Array_Access);
-	procedure Free is new Unchecked_Deallocation (Object => String, Name => String_Access);
-
-	-- Modular I/O types
-	package Unsigned_16_IO is new Modular_IO (Num => Unsigned_16);
-
-	-- Get Language ID (or "") from file name
-	function Get_Language_ID (File_Name : String) return String is
-	begin
-		if File_Name'Length < 23 then -- Minimum length for w64_audio_XXXX_code_0.pkg	
-			return "";
-		end if;
-
-		if File_Name (File_Name'First .. File_Name'First + 8) /= "w64_audio" then
-			return "";
-		end if;
-
-		return File_Name (File_Name'First + 15 .. File_Name'Last - 6);
-	end Get_Language_ID;
-
-	-- Print Hex String for Unsigned_16
-	function Hex_String (Num : Unsigned_16) return String is
-		S : String (1 .. 8); -- 16#XXXX#
-		First : Natural := 0;
-		Last : Natural := 0;
-		O : String (1 .. 4) := "0000"; -- XXXX
-		Pad : Natural := 0;
-	begin
-		Unsigned_16_IO.Put(S, Num, 16);
-
-		-- First is first X, last last X in XXXX, XXX, XX, or X
-		for I in S'Range loop
-			if S (I) = '#' then
-				if First = 0 then
-					First := I + 1;
-				else
-					Last := I - 1;
-				end if;
-			end if;
-		end loop;
-
-		-- Fill in only used digits to ensure consistent length
-		Pad := 3 - (Last - First);
-		for I in First .. Last loop
-			O (Pad + I - First + O'First) := S (I);
-		end loop;
-
-		return To_Lower (O);
-	end Hex_String;
-
-	-- Print Decimal String for Unsigned_32
-	function Decimal_String (U : Unsigned_32) return String is (Unsigned_32'Image (U) (2 .. Unsigned_32'Image (U)'Last));
-
-	-- Determine file with same Package ID and different patch ID
-	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID)(2 .. Unsigned_16'Image (Patch_ID)'Last) & ".pkg"); 
-
 	-- Read data from entry into buffer
-	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and freed when no longer needed by the calling subprogram.
+	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and managed by the calling subprogram
 	function Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access) return Boolean is
 		-- Constants
 		-- TODO: Need floor function?
@@ -102,8 +40,9 @@ package body Unpacker.Worker is
 	begin
 		-- Open first patch file if not already open
 		if File_Name /= Determine_Patch_Name (File_Name, Current_Block.Patch_ID) then
-			-- If patch file does not exist, exit. This could be due to missing language packages. TODO Investigate
+			-- If patch file does not exist, exit.
 			if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
+				Put_Line (Standard_Error, "[Error] Missing initial patch file.");
 				return False;
 			end if;
 
@@ -119,6 +58,7 @@ package body Unpacker.Worker is
 
 			-- If block size invalid, exit
 			if Current_Block.Size < 1 then
+				Put_Line (Standard_Error, "[Error] Invalid block size.");
 				return False;
 			end if;
 
@@ -133,8 +73,9 @@ package body Unpacker.Worker is
 						Close (Supp_F);
 					end if;
 
-					-- If supplemental patch file does not exist, exit. This could be due to missing language packages TODO Investigate
+					-- If supplemental patch file does not exist, exit.
 					if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
+						Put_Line (Standard_Error, "[Error] Missing supplemental patch file.");
 						return False;
 					end if;
 
@@ -146,38 +87,42 @@ package body Unpacker.Worker is
 					Opened_Patch_ID := Current_Block.Patch_ID;
 				end if;
 
+				-- Increment stream index
 				if Supplemental_File then
 					Set_Index (Supp_F, Stream_IO.Positive_Count (Current_Block.Offset + 1));
 				else
 					Set_Index (In_F, Stream_IO.Positive_Count (Current_Block.Offset + 1));
 				end if;
 
+				-- Read raw data
 				Data_Array'Read (In_S, Block_B);
 				
-				if Mode = d1 then
-					if (Current_Block.Bit_Flag and 1) > 0 then -- Always uses older LZ compression methods
-						Discard_Size := LinoodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
-					else
-						Decompress_B := Block_B;	
-					end if;
-				else -- D2, so encryption possibly used
-					if (Current_Block.Bit_Flag and 2) > 0 then	
-						Decrypt_Block (Current_Block, Block_B, Decrypt_B);
-					else
-						Decrypt_B := Block_B;
-					end if;
-
-					if (Current_Block.Bit_Flag and 1) > 0 then
-						if Mode = prebl then
-							Discard_Size := LinoodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
-						else -- Post-BL, so newer compression methods
-							Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+				case Mode is
+					when d1 => -- No encryption, old compression
+						if (Current_Block.Bit_Flag and 1) > 0 then -- Always uses older LZ compression methods
+							Discard_Size := LinoodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						else
+							Decompress_B (Block_B'Range) := Block_B; -- Could be shorter in theory if last block	
 						end if;
-					else
-						Decompress_B (Decrypt_B'Range) := Decrypt_B; -- Could be shorter in theory if last block
-					end if;
+					when prebl | postbl => -- Encryption, mixed compression
+						-- If current block encrypted
+						if (Current_Block.Bit_Flag and 2) > 0 then
+							Decrypt_Block (Current_Block, Block_B, Decrypt_B);
+						else -- Otherwise transfer data
+							Decrypt_B := Block_B;
+						end if;
 
-				end if;
+						-- If current block compressed
+						if (Current_Block.Bit_Flag and 1) > 0 then
+							if Mode = prebl then -- Pre-BL, old compression
+								Discard_Size := LinoodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+							else -- Post-BL, so newer compression methods
+								Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+							end if;
+						else -- Otherwise transfer data
+							Decompress_B (Decrypt_B'Range) := Decrypt_B; -- Could be shorter in theory if last block
+						end if;
+				end case;
 
 				-- TODO: Check array indices vs. C++
 				-- If first block
@@ -239,6 +184,9 @@ package body Unpacker.Worker is
 		-- Output
 		O : Stream_IO.File_Type;
 		OS : Stream_Access;
+
+		-- TODO Debug
+		Extract_Error : exception;
 	begin
 		loop
 			select
@@ -265,6 +213,8 @@ package body Unpacker.Worker is
 					OS := Stream (O);
 					Data_Array'Write (OS, Data_B.all);
 					Close (O);
+
+--					Put_Line ("[Debug] Extracted file: " & Task_Path.all); -- TODO Debug
 				end if;
 
 				-- Free Buffers and Strings
@@ -280,12 +230,17 @@ package body Unpacker.Worker is
 				terminate;
 			end select;
 		end loop;
+	exception
+		when E : others => 
+			Put_Line (Standard_Error, "[Fatal Error] " & Exception_Message (E));
+			raise Extract_Error;
 	end Extract_Task;
 
 	-- Array of Extract Tasks
 	MAX_TASKS : constant Positive := 11; -- TODO Add adjustment
 	Extract_Tasks : array (1 .. MAX_TASKS) of Extract_Task;
 
+	-- Invoke free extract task from array
 	procedure Delegate_Extract_Task (P : String; E : Entry_Type) is
 	begin
 		Outer:
@@ -344,7 +299,7 @@ package body Unpacker.Worker is
 										Ext := "wem";
 								end case;
 							when BNK_IDX_BUF =>
-								if Language_ID'Length /= 0 then -- Banks are not currently useful for language-specfic audio
+								if Language_ID'Length /= 0 then -- Banks are not currently useful for language-specific audio
 									Should_Extract := False;
 								end if;
 
@@ -369,22 +324,24 @@ package body Unpacker.Worker is
 							when STRING_REF =>
 								Subdir := "txt";
 								Ext := "ref";
+							when JUNK => Should_Extract := False;
 							when others =>
-								-- Put_Line ("[Debug] Unknown entry with ref " & Entry_Reference_Type'Image (Entry_Reference) & " type " & Entry_Type_Type'Image (Entry_Type) & " subtype " & Entry_Subtype_Type'Image (Entry_Subtype));
+								null;
+								--Put_Line ("[Debug] Unknown entry with reference " & Entry_Reference_Type'Image (Entry_Reference) & "(" & Unsigned_32'Image (E.Reference) & ") type " & Entry_Type_Type'Image (Entry_Type) & "(" & Unsigned_8'Image (E.Entry_Type) & ") subtype " & Entry_Subtype_Type'Image (Entry_Subtype) & "(" & Unsigned_8'Image (E.Entry_Subtype) &")"); -- TODO Debug
 								Should_Extract := False;
 						end case;
 				end case;
 
 				-- If should extract, read data and write to file
 				if Should_Extract then
-					if not Exists (Output_Dir & "/" & Subdir) then
-						Create_Directory (Output_Dir & "/" & Subdir);
+					-- Create output directory if necessary
+					if not Exists (Output_Dir & "/" & Subdir & "/" & Language_ID) then
+						Create_Directory (Output_Dir & "/" & Subdir & "/" & Language_ID);
 					end if;
 
 					declare
-						Path : constant String := Output_Dir & "/" & Subdir & "/" & (if Name = BY_ID then Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference)) & Language_ID & "." & Ext;
+						Path : constant String := Output_Dir & "/" & Subdir & "/" & Language_ID & "/" & (if Name = BY_ID then Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference)) & "." & Ext;
 					begin
-						-- Put_Line ("[Debug] Exporting " & Path); --TODO Debug
 						if not Exists (Path) then
 							Delegate_Extract_Task (Path, E);
 						end if;
@@ -408,19 +365,19 @@ package body Unpacker.Worker is
 		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
 	begin
 		-- TODO Debug
---		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)
---			& " Build ID " & Unsigned_32'Image (H.Build_ID)
---			& " Patch ID " & Unsigned_16'Image (H.Patch_ID)
---			& " Entry Table Size " & Unsigned_32'Image (H.Entry_Table_Size)
---			& " Entry Table Offset " & Unsigned_32'Image (H.Entry_Table_Offset)
---			& " Block Table Size " & Unsigned_32'Image (H.Block_Table_Size)
---			& " Block Table Offset " & Unsigned_32'Image (H.Block_Table_Offset));
+		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)
+			& " Build ID " & Unsigned_32'Image (H.Build_ID)
+			& " Patch ID " & Unsigned_16'Image (H.Patch_ID)
+			& " Entry Table Size " & Unsigned_32'Image (H.Entry_Table_Size)
+			& " Entry Table Offset " & Unsigned_32'Image (H.Entry_Table_Offset)
+			& " Block Table Size " & Unsigned_32'Image (H.Block_Table_Size)
+			& " Block Table Offset " & Unsigned_32'Image (H.Block_Table_Offset));
 		-- TODO Debug
 
-		Modify_Nonce (H);
+		Modify_Nonce (H); -- Only needed for Destiny 2
 		Read_Entries (Stream, File, E, H);
 		Read_Blocks (Stream, File, B, H);
 		Close (File); -- No longer needed directly
-		Extract (File_Name, Output_Dir, E, B, H, Get_Language_ID (Simple_Name (File_Name)));
+		Extract (File_Name, Output_Dir, E, B, H, Get_Language_ID (File_Name));
 	end Unpack;
 end Unpacker.Worker;
