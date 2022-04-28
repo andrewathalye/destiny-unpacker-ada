@@ -10,6 +10,7 @@ with oodle; use oodle;
 
 with Unpacker.Crypto; use Unpacker.Crypto;
 with Unpacker.Package_File; use Unpacker.Package_File;
+with Unpacker.Package_File.Types; use Unpacker.Package_File.Types;
 with Unpacker.Util; use Unpacker.Util;
 
 package body Unpacker.Worker is
@@ -21,7 +22,6 @@ package body Unpacker.Worker is
 	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and managed by the calling subprogram
 	procedure Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access) is
 		-- Constants
-		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
 		Block_Count : constant Unsigned_32 :=  (E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE;
 		Last_Block_ID : constant Unsigned_32 := E.Starting_Block + Block_Count;
@@ -125,7 +125,6 @@ package body Unpacker.Worker is
 						end if;
 				end case;
 
-				-- TODO: Check array indices vs. C++
 				-- If first block
 				if Current_Block_ID = E.Starting_Block then
 					declare
