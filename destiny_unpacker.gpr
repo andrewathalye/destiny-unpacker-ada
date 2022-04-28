@@ -14,7 +14,7 @@ project Destiny_Unpacker is
 	end Builder;
 
 	package Compiler is
-		for Switches ("Ada") use ("-gnatwa", "-gnatVa", "-O2", "-march=native");
+		for Switches ("Ada") use ("-gnatwa", "-gnatVa", "-O2", "-march=native", "-gnat2022");
 	end Compiler;
 
 	package Binder is

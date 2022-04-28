@@ -1,5 +1,6 @@
 with Unchecked_Deallocation;
 with Interfaces; use Interfaces;
+with System;
 
 package Unpacker.Util is
 	-- Common Buffer Type
@@ -18,4 +19,5 @@ package Unpacker.Util is
 	function Hex_String (Num : Unsigned_16) return String;
 	function Decimal_String (U : Unsigned_32) return String;
 	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String;
+	procedure Copy (A : System.Address; B : System.Address; Size : Natural);
 end Unpacker.Util;

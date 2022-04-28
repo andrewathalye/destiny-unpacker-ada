@@ -98,7 +98,7 @@ package body Unpacker.Worker is
 				Data_Array'Read (In_S, Block_B);
 				
 				case Mode is
-					when d1 => -- No encryption, old compression
+					when d1 | d1be => -- No encryption, old compression
 						if (Current_Block.Bit_Flag and 1) > 0 then -- Always uses older LZ compression methods
 							Discard_Size := LinoodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 						else
@@ -305,16 +305,41 @@ package body Unpacker.Worker is
 
 								Subdir := "bnk";
 								Ext := "bnk";
+							when others => Should_Extract := False;
+						end case;
+					when D1BE_WEM => -- For Destiny 1 BE only
+						case Entry_Subtype is
+							when D1BE_BNK_WEM =>
+								case Entry_Reference is
+									when JUNK =>
+										Should_Extract := False;
+									when others =>
+										if Language_ID'Length = 0 then
+											Name := BY_REF;
+										end if;
+										Subdir := "wem";
+										Ext := "wem";
+								end case;
 							when others =>
 								Should_Extract := False;
+						end case;
+					when D1BE_BNK => -- For Destiny 1 BE only
+						case Entry_Subtype is
+							when D1BE_BNK_WEM =>
+								if Language_ID'Length /= 0 then
+									Should_Extract := False;
+								end if;
+
+								Subdir := "bnk";
+								Ext := "bnk";
+							when others => Should_Extract := False;
 						end case;
 					when VIDEO =>
 						case Entry_Subtype is
 							when USM_TEXREF_DDS =>
 								Subdir := "usm";
 								Ext := "usm";
-							when others =>
-								Should_Extract := False;
+							when others => Should_Extract := False;
 						end case;
 					when others =>
 						case Entry_Reference is
@@ -341,6 +366,7 @@ package body Unpacker.Worker is
 					declare
 						Path : constant String := Output_Dir & "/" & Subdir & "/" & Language_ID & "/" & (if Name = BY_ID then Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference)) & "." & Ext;
 					begin
+						-- Put_Line (Path); -- TODO Debug
 						if not Exists (Path) then
 							Delegate_Extract_Task (Path, E);
 						end if;
@@ -363,15 +389,7 @@ package body Unpacker.Worker is
 		E : Entry_Array (1 .. Natural (H.Entry_Table_Size));
 		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
 	begin
-		-- TODO Debug
---		Put_Line ("[Debug] Header Dump: Package ID" & Unsigned_16'Image (H.Package_ID)
---			& " Build ID " & Unsigned_32'Image (H.Build_ID)
---			& " Patch ID " & Unsigned_16'Image (H.Patch_ID)
---			& " Entry Table Size " & Unsigned_32'Image (H.Entry_Table_Size)
---			& " Entry Table Offset " & Unsigned_32'Image (H.Entry_Table_Offset)
---			& " Block Table Size " & Unsigned_32'Image (H.Block_Table_Size)
---			& " Block Table Offset " & Unsigned_32'Image (H.Block_Table_Offset));
-		-- TODO Debug
+--		Put_Line (Header'Image (H)); -- TODO Debug
 
 		Modify_Nonce (H); -- Only needed for Destiny 2
 		Read_Entries (Stream, File, E, H);

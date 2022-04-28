@@ -30,9 +30,8 @@ package body Unpacker is
 		F : Stream_IO.File_Type;
 
 		Invalid_Arguments : exception;
-
 	begin
-		Put_Line ("Destiny Linux Unpacker v1.1");
+		Put_Line ("Destiny Linux Unpacker v1.2");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then
@@ -69,6 +68,7 @@ package body Unpacker is
 					Put_Line ("[Info] Unpacking " & Simple_Name (D));
 					Open (F, In_File, Full_Name (D));
 					SA := Stream (F);
+
 					Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);
 				end if;
 			end loop;
@@ -77,7 +77,7 @@ package body Unpacker is
 	exception
 		when Invalid_Arguments =>
 			Put_Line ("Usage: " & Command_Name & " TYPE PACKAGE_DIR OUTPUT_DIR");
-			Put_Line ("Types are one of: d1 = Destiny 1, prebl = Pre-Beyond Light, or postbl = Post-Beyond Light");
+			Put_Line ("Types are one of: d1be = Destiny 1 Big Endian, d1 = Destiny 1, prebl = Pre-Beyond Light, or postbl = Post-Beyond Light");
 			return;	
 	end Unpacker_Main;
 end Unpacker;

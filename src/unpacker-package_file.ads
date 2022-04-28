@@ -20,10 +20,10 @@ package Unpacker.Package_File is
 	type Entry_Reference_Type is (UNK, STRING_BNK, STRING_REF, STRING_REF_IDX, FONT_REF, LOAD_ZONE, MAIN_MODEL, SUBFILES, DYN_HEADER, ANIMATION, TERRAIN, MATERIAL, AUDIO_REF, JUNK);
 
 	-- Enumeration for known Entry Types
-	type Entry_Type_Type is (UNK, RAW_DATA, FONT_FILE, THIRD_PARTY, VIDEO, TEXTURE_MODEL_HEADER, MODEL_DATA, TEXTURE_UI_DATA, DIRECTX_BYTECODE_HEADER, DIRECTX_BYTECODE);
+	type Entry_Type_Type is (UNK, RAW_DATA, FONT_FILE, THIRD_PARTY, VIDEO, TEXTURE_MODEL_HEADER, MODEL_DATA, TEXTURE_UI_DATA, DIRECTX_BYTECODE_HEADER, DIRECTX_BYTECODE, D1BE_BNK, D1BE_WEM);
 
 	-- Enumeration for known Entry Subtypes
-	type Entry_Subtype_Type is (UNK, BNK_IDX_BUF, WEM, HAVOK, VIDEO_UNK, USM_TEXREF_DDS,  VERT_BUF);
+	type Entry_Subtype_Type is (UNK, BNK_IDX_BUF, WEM, HAVOK, VIDEO_UNK, USM_TEXREF_DDS,  VERT_BUF, D1BE_BNK_WEM);
 
 	-- Block Normalised Type
 	-- Cannot be read from Stream (sadly)
@@ -58,7 +58,7 @@ package Unpacker.Package_File is
 	-- Subprograms
 	procedure Read_Blocks (S : Stream_Access; F : File_Type; V : out Block_Array; H : Header);
 	procedure Read_Entries (S : Stream_Access; F : File_Type; V : out Entry_Array; H : Header);
-	function Read_Header (S : in Stream_Access) return Header;
+	function Read_Header (S : Stream_Access) return Header;
 
 	-- Convert raw value into member of corresponding (version-agnostic) enumerated type
 	function To_Type (R : Unsigned_32) return Entry_Reference_Type;
