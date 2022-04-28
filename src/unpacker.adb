@@ -2,6 +2,7 @@ with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Command_Line; use Ada.Command_Line;
 with Ada.Streams.Stream_IO; use Ada.Streams; use Ada.Streams.Stream_IO;
 with Ada.Directories; use Ada.Directories;
+with Ada.Exceptions; use Ada.Exceptions;
 
 with Unpacker.Worker; use Unpacker.Worker;
 
@@ -31,7 +32,7 @@ package body Unpacker is
 
 		Invalid_Arguments : exception;
 	begin
-		Put_Line ("Destiny Linux Unpacker v1.2");
+		Put_Line ("Destiny Linux Unpacker v1.3");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then
@@ -45,7 +46,11 @@ package body Unpacker is
 			Output_Dir : String renames Argument (3);
 		begin
 			-- Check for valid package type
-			Mode := Mode_Type'Value (Mode_String);
+			begin
+				Mode := Mode_Type'Value (Mode_String);
+			exception
+				when Constraint_Error => raise Invalid_Arguments;
+			end;
 
 			-- Create output directory and ensure input directory exists	
 			if not Exists (Package_Dir) then
@@ -68,8 +73,8 @@ package body Unpacker is
 					Put_Line ("[Info] Unpacking " & Simple_Name (D));
 					Open (F, In_File, Full_Name (D));
 					SA := Stream (F);
-
 					Unpack (Stream => SA, File => F, File_Name => Full_Name (D), Output_Dir => Output_Dir);
+--					exit; -- TODO Debug
 				end if;
 			end loop;
 			End_Search (SE);
@@ -79,5 +84,11 @@ package body Unpacker is
 			Put_Line ("Usage: " & Command_Name & " TYPE PACKAGE_DIR OUTPUT_DIR");
 			Put_Line ("Types are one of: d1be = Destiny 1 Big Endian, d1 = Destiny 1, prebl = Pre-Beyond Light, or postbl = Post-Beyond Light");
 			return;	
+		when E : Storage_Error =>
+			Put_Line (Standard_Error, "[Fatal Error] The Mode type supplied was of the incorrect endianness or an incorrect memory access occurred: " & Exception_Message (E));
+			return;
+		when E : Constraint_Error =>
+			Put_Line (Standard_Error, "[Fatal Error] An unhandled bounds error occurred. This is most likely the result of an incorrect Mode. Raw Error: " & Exception_Message (E));
+			return;
 	end Unpacker_Main;
 end Unpacker;

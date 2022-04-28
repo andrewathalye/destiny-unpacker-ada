@@ -33,7 +33,9 @@ To acquire oo2corelinux64.so.9, follow the instructions at https://github.com/gi
 >	If unsure, you might consider purchasing a license to Oodle 2.9.
 
 The program is used as follows:
-`./destinyunpacker [d1, prebl, or postbl] PACKAGES_DIRECTORY OUTPUT_DIRECTORY`
+`./destinyunpacker [d1be, d1, prebl, or postbl] PACKAGES_DIRECTORY OUTPUT_DIRECTORY`  
+
+If any errors occur during unpacking, please add them to an Issue so I can investigate.  
 
 Building from Source
 --------------------

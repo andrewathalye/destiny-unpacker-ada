@@ -31,19 +31,4 @@ package body Unpacker.Util is
 	-- Returns a file path given an original file path and a new Patch ID
 	function Determine_Patch_Name (File_Name : String; Patch_ID : Unsigned_16) return String is (File_Name (File_Name'First .. File_Name'Last - 5) & Unsigned_16'Image (Patch_ID)(2 .. Unsigned_16'Image (Patch_ID)'Last) & ".pkg"); 
 
-	-- Manually copy bytes from LE header to BE header, since 'Read attribute cannot yet handle representation clauses correctly
-	-- This is *unchecked* behaviour, and both inputs must be aliased
-	procedure Copy (A : System.Address; B : System.Address; Size : Natural) is
-		type Byte_Array is array (1 .. Size) of Unsigned_8;
-		ArrA : Byte_Array;
-		for ArrA'Address use A;
-
-		ArrB : Byte_Array;
-		for ArrB'Address use B;
-	begin
-		for I in ArrB'Range loop
-			ArrB (I) := ArrA (I);
-		end loop;
-	end Copy;
-
 end Unpacker.Util;

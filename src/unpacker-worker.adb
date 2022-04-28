@@ -1,6 +1,6 @@
 with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams; use Ada.Streams;
-with Ada.Directories; use Ada.Directories;
+with Ada.Directories; use Ada; use Ada.Directories;
 with Ada.Exceptions; use Ada.Exceptions;
 with Interfaces.C; use Interfaces.C;
 with Interfaces; use Interfaces;
@@ -13,9 +13,13 @@ with Unpacker.Package_File; use Unpacker.Package_File;
 with Unpacker.Util; use Unpacker.Util;
 
 package body Unpacker.Worker is
+	-- Exceptions
+	Extract_Exception : exception; -- Any error which prevents extraction of an entry
+	Extract_Task_Exception : exception; -- Fatal error which forces task to terminate
+
 	-- Read data from entry into buffer
 	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and managed by the calling subprogram
-	function Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access) return Boolean is
+	procedure Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access) is
 		-- Constants
 		-- TODO: Need floor function?
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
@@ -42,8 +46,7 @@ package body Unpacker.Worker is
 		if File_Name /= Determine_Patch_Name (File_Name, Current_Block.Patch_ID) then
 			-- If patch file does not exist, exit.
 			if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
-				Put_Line (Standard_Error, "[Error] Missing initial patch file.");
-				return False;
+				raise Extract_Exception with "Missing initial patch file " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID);
 			end if;
 
 			Open (Supp_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
@@ -58,8 +61,7 @@ package body Unpacker.Worker is
 
 			-- If block size invalid, exit
 			if Current_Block.Size < 1 then
-				Put_Line (Standard_Error, "[Error] Invalid block size.");
-				return False;
+				raise Extract_Exception with "Invalid block size.";
 			end if;
 
 			declare
@@ -75,8 +77,7 @@ package body Unpacker.Worker is
 
 					-- If supplemental patch file does not exist, exit.
 					if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
-						Put_Line (Standard_Error, "[Error] Missing supplemental patch file.");
-						return False;
+						raise Extract_Exception with "Missing supplemental patch file " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID);
 					end if;
 
 					Open (Supp_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
@@ -157,8 +158,6 @@ package body Unpacker.Worker is
 		if Supplemental_File then
 			Close (Supp_F); -- Make sure extra Patch file is closed before returning
 		end if;
-
-		return True;
 	end Extract_Entry;
 
 	-- Task Definition for Parallel Extractions
@@ -184,9 +183,6 @@ package body Unpacker.Worker is
 		-- Output
 		O : Stream_IO.File_Type;
 		OS : Stream_Access;
-
-		-- TODO Debug
-		Extract_Error : exception;
 	begin
 		loop
 			select
@@ -205,9 +201,9 @@ package body Unpacker.Worker is
 				-- Fill Buffer
 				Data_B := new Data_Array (1 .. Natural (Task_E.File_Size));
 
-				if not Extract_Entry (In_F, Task_File_Name.all, Task_E, Task_BV.all, Data_B) then
-					Put_Line (Standard_Error, "[Error] Failed to extract entry for file: " & Task_Path.all);
-				else
+				begin
+					Extract_Entry (In_F, Task_File_Name.all, Task_E, Task_BV.all, Data_B);
+
 					-- Write Data
 					Create (O, Out_File, Task_Path.all);
 					OS := Stream (O);
@@ -215,7 +211,9 @@ package body Unpacker.Worker is
 					Close (O);
 
 --					Put_Line ("[Debug] Extracted file: " & Task_Path.all); -- TODO Debug
-				end if;
+				exception
+					when E : Extract_Exception => Put_Line (Standard_Error, "[Error] Failed to extract file " & Task_Path.all & ": " & Exception_Message (E));
+				end;
 
 				-- Free Buffers and Strings
 				Free (Data_B);
@@ -231,9 +229,12 @@ package body Unpacker.Worker is
 			end select;
 		end loop;
 	exception
+		when E : Constraint_Error =>
+			Put_Line (Standard_Error, "[Fatal Error] Extract task failed due to invalid bounds: " & Exception_Message (E));
+			raise Extract_Task_Exception;
 		when E : others => 
-			Put_Line (Standard_Error, "[Fatal Error] " & Exception_Message (E));
-			raise Extract_Error;
+			Put_Line (Standard_Error, "[Unknown Error] " & Exception_Message (E));
+			raise Extract_Task_Exception;
 	end Extract_Task;
 
 	-- Array of Extract Tasks
@@ -360,13 +361,16 @@ package body Unpacker.Worker is
 				if Should_Extract then
 					-- Create output directory if necessary
 					if not Exists (Output_Dir & "/" & Subdir & "/" & Language_ID) then
+						if not Exists (Output_Dir & "/" & Subdir & "/") then
+							Create_Directory (Output_Dir & "/" & Subdir & "/");
+						end if;
 						Create_Directory (Output_Dir & "/" & Subdir & "/" & Language_ID);
 					end if;
 
 					declare
 						Path : constant String := Output_Dir & "/" & Subdir & "/" & Language_ID & "/" & (if Name = BY_ID then Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference)) & "." & Ext;
 					begin
-						-- Put_Line (Path); -- TODO Debug
+--						Put_Line (Path); -- TODO Debug
 						if not Exists (Path) then
 							Delegate_Extract_Task (Path, E);
 						end if;
@@ -381,6 +385,10 @@ package body Unpacker.Worker is
 		for I of Extract_Tasks loop
 			I.Done;
 		end loop;
+	exception
+		when E : Directories.Use_Error | Stream_IO.Use_Error =>
+			Put_Line (Standard_Error, "[Fatal Error] Extract master task was unable to create or access file or directory: " & Exception_Message (E));
+			return;
 	end Extract;
 
 	-- Primary unpacker function
