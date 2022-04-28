@@ -48,7 +48,9 @@ package body Unpacker.Package_File is
 					R_BE : Raw_Block_BE
 					with
 						Import => True;
+					pragma Warnings (Off, "overlay changes scalar storage order");
 					for R_BE'Address use R'Address;
+					pragma Warnings (On);
 				begin
 					--Copy (InB'Address, R.R_BE'Address, Raw_Block_BE'Size / 8);
 					R := Raw_Block (R_BE); 
@@ -82,6 +84,12 @@ package body Unpacker.Package_File is
 		-- Big Endian Type
 		-- Note: C and D are flipped in this type
 		type Raw_Entry_BE is new Raw_Entry;
+		for Raw_Entry_BE use record
+			A at 0 range 0 .. 31;
+			B at 4 range 0 .. 31;
+			C at 12 range 0 .. 31;
+			D at 8 range 0 .. 31;
+		end record;
 
 		for Raw_Entry_BE'Bit_Order use System.High_Order_First;
 		for Raw_Entry_BE'Scalar_Storage_Order use System.High_Order_First;
@@ -104,7 +112,9 @@ package body Unpacker.Package_File is
 					R_BE : Raw_Entry_BE
 					with
 						Import => True;
+					pragma Warnings (Off, "overlay changes scalar storage order");
 					for R_BE'Address use R'Address;
+					pragma Warnings (On);
 					C : constant Unsigned_32 := R_BE.C;
 				begin
 					R_BE.C := R_BE.D;
@@ -210,7 +220,9 @@ package body Unpacker.Package_File is
 				BeH : D1_BE_Header
 				with
 					Import => True;
+				pragma Warnings (Off, "overlay changes scalar storage order");
 				for BeH'Address use R.H_D1PR'Address;
+				pragma Warnings (On);
 			begin
 				R.H_D1PR := D1_PreBL_Header (BeH);
 			end;
