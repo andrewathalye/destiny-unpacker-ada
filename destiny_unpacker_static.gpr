@@ -15,7 +15,7 @@ project Destiny_Unpacker_Static is
 	end Builder;
 
 	package Compiler is
-		for Switches ("Ada") use ("-gnatwa", "-gnatVa", "-O2", "-gnat2022");
+		for Switches ("Ada") use ("-gnatwa", "-gnatyabCefiklmnprt", "-gnatVa", "-O2", "-gnat2022");
 	end Compiler;
 
 	package Binder is

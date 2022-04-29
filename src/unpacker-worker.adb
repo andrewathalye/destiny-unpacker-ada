@@ -15,25 +15,33 @@ with Unpacker.Util; use Unpacker.Util;
 
 package body Unpacker.Worker is
 	-- Exceptions
-	Extract_Exception : exception; -- Any error which prevents extraction of an entry
-	Extract_Task_Exception : exception; -- Fatal error which forces task to terminate
+	Extract_Exception : exception;
+		-- Any error which prevents extraction of an entry
+	Extract_Task_Exception : exception;
+		-- Fatal error which forces task to terminate
 
 	-- Read data from entry into buffer
-	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and managed by the calling subprogram
-	procedure Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String; E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access) is
+	-- Data_B must be initialised as a Data_Array of bounds (1 .. E.File_Size) and
+	-- managed by the calling subprogram
+	procedure Extract_Entry (In_F : Stream_IO.File_Type; File_Name : String;
+		E : Entry_Type; BV : Block_Array; Data_B : not null Data_Array_Access)
+	is
 		-- Constants
 		BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
-		Block_Count : constant Unsigned_32 :=  (E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE;
+		Block_Count : constant Unsigned_32 :=
+			(E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE;
 		Last_Block_ID : constant Unsigned_32 := E.Starting_Block + Block_Count;
 
 		-- Variables
 		Current_Block_ID : Unsigned_32 := E.Starting_Block;
 		Current_Block : Block := BV (Natural (Current_Block_ID) + 1);
-		Discard_Size : size_t := 0; -- Used for results of Decompress operation (not needed)
+		Discard_Size : size_t := 0;
+			-- Used for results of Decompress operation (not needed)
 		Opened_Patch_ID : Unsigned_16 := Current_Block.Patch_ID;
 
 		-- File and Stream
-		Supplemental_File : Boolean := False; -- Does Supp_F need to be closed at end of subprogram
+		Supplemental_File : Boolean := False;
+			-- Does Supp_F need to be closed at end of subprogram
 		Supp_F : Stream_IO.File_Type; -- Additional input File
 		In_S : Stream_Access; -- Input Stream
 
@@ -45,11 +53,17 @@ package body Unpacker.Worker is
 		-- Open first patch file if not already open
 		if File_Name /= Determine_Patch_Name (File_Name, Current_Block.Patch_ID) then
 			-- If patch file does not exist, exit.
-			if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
-				raise Extract_Exception with "Missing initial patch file " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID);
+			if not Exists
+				(Determine_Patch_Name (File_Name, Current_Block.Patch_ID))
+			then
+				raise Extract_Exception with "Missing initial patch file "
+					& Determine_Patch_Name (File_Name, Current_Block.Patch_ID);
 			end if;
 
-			Open (Supp_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
+			Open (Supp_F,
+				Mode => In_File,
+				Name => Determine_Patch_Name (File_Name, Current_Block.Patch_ID),
+				Form => "shared=no");
 			In_S := Stream (Supp_F);
 			Supplemental_File := True;
 		else
@@ -76,11 +90,17 @@ package body Unpacker.Worker is
 					end if;
 
 					-- If supplemental patch file does not exist, exit.
-					if not Exists (Determine_Patch_Name (File_Name, Current_Block.Patch_ID)) then
-						raise Extract_Exception with "Missing supplemental patch file " & Determine_Patch_Name (File_Name, Current_Block.Patch_ID);
+					if not Exists
+						(Determine_Patch_Name (File_Name, Current_Block.Patch_ID))
+					then
+						raise Extract_Exception with "Missing supplemental patch file "
+							& Determine_Patch_Name (File_Name, Current_Block.Patch_ID);
 					end if;
 
-					Open (Supp_F, In_File, Determine_Patch_Name (File_Name, Current_Block.Patch_ID), "shared=no");
+					Open (Supp_F,
+						Mode => In_File,
+						Name => Determine_Patch_Name (File_Name, Current_Block.Patch_ID),
+						Form => "shared=no");
 
 					In_S := Stream (Supp_F);
 					Supplemental_File := True; -- Mark for closing at end of subprogram
@@ -97,13 +117,19 @@ package body Unpacker.Worker is
 
 				-- Read raw data
 				Data_Array'Read (In_S, Block_B);
-				
+
 				case Mode is
 					when d1 | d1be => -- No encryption, old compression
-						if (Current_Block.Bit_Flag and 1) > 0 then -- Always uses older LZ compression methods
-							Discard_Size := LinoodleLZ_Decompress (Block_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+						if (Current_Block.Bit_Flag and 1) > 0 then
+							-- Always uses older LZ compression methods
+							Discard_Size := LinoodleLZ_Decompress (Block_B'Address,
+								size_t (Current_Block.Size),
+								Decompress_B'Address,
+								size_t (BLOCK_SIZE),
+								0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 						else
-							Decompress_B (Block_B'Range) := Block_B; -- Could be shorter in theory if last block	
+							Decompress_B (Block_B'Range) := Block_B;
+								-- Could be shorter in theory if last block
 						end if;
 					when prebl | postbl => -- Encryption, mixed compression
 						-- If current block encrypted
@@ -116,12 +142,21 @@ package body Unpacker.Worker is
 						-- If current block compressed
 						if (Current_Block.Bit_Flag and 1) > 0 then
 							if Mode = prebl then -- Pre-BL, old compression
-								Discard_Size := LinoodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+								Discard_Size := LinoodleLZ_Decompress (Decrypt_B'Address,
+									size_t (Current_Block.Size),
+									Decompress_B'Address,
+									size_t (BLOCK_SIZE),
+									0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 							else -- Post-BL, so newer compression methods
-								Discard_Size := OodleLZ_Decompress (Decrypt_B'Address, size_t (Current_Block.Size), Decompress_B'Address, size_t (BLOCK_SIZE), 0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
+								Discard_Size := OodleLZ_Decompress (Decrypt_B'Address,
+									size_t (Current_Block.Size),
+									Decompress_B'Address,
+									size_t (BLOCK_SIZE),
+									0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 							end if;
 						else -- Otherwise transfer data
-							Decompress_B (Decrypt_B'Range) := Decrypt_B; -- Could be shorter in theory if last block
+							Decompress_B (Decrypt_B'Range) := Decrypt_B;
+								-- Could be shorter in theory if last block
 						end if;
 				end case;
 
@@ -138,15 +173,21 @@ package body Unpacker.Worker is
 							Copy_Size := Natural (BLOCK_SIZE - E.Starting_Block_Offset);
 						end if;
 
-						Data_B (1 .. Copy_Size) := Decompress_B (Natural (E.Starting_Block_Offset) + 1 .. Natural (E.Starting_Block_Offset) + Copy_Size);	
+						Data_B (1 .. Copy_Size) :=
+							Decompress_B (
+								Natural (E.Starting_Block_Offset) + 1
+								.. Natural (E.Starting_Block_Offset) + Copy_Size);
 						Current_Buffer_Offset := Current_Buffer_Offset + Copy_Size;
 					end;
 				-- If last block
 				elsif Current_Block_ID = Last_Block_ID then
-						Data_B (1 + Current_Buffer_Offset .. Natural (E.File_Size)) := Decompress_B (1 .. Natural (E.File_Size) - Current_Buffer_Offset);
+						Data_B (1 + Current_Buffer_Offset .. Natural (E.File_Size)) :=
+							Decompress_B (1 .. Natural (E.File_Size) - Current_Buffer_Offset);
 				-- If normal block
 				else
-					Data_B (1 + Current_Buffer_Offset .. Current_Buffer_Offset + Natural (BLOCK_SIZE)) := Decompress_B (1 .. Natural (BLOCK_SIZE));
+					Data_B (1 + Current_Buffer_Offset
+						.. Current_Buffer_Offset + Natural (BLOCK_SIZE)) :=
+							Decompress_B (1 .. Natural (BLOCK_SIZE));
 					Current_Buffer_Offset := Current_Buffer_Offset + Natural (BLOCK_SIZE);
 				end if;
 			end;
@@ -211,7 +252,12 @@ package body Unpacker.Worker is
 
 --					Put_Line ("[Debug] Extracted file: " & Task_Path.all); -- TODO Debug
 				exception
-					when E : Extract_Exception => Put_Line (Standard_Error, "[Error] Failed to extract file " & Task_Path.all & ": " & Exception_Message (E));
+					when E : Extract_Exception =>
+						Put_Line (Standard_Error,
+							"[Error] Failed to extract file "
+							& Task_Path.all
+							& ": "
+							& Exception_Message (E));
 				end;
 
 				-- Free Buffers and Strings
@@ -229,10 +275,14 @@ package body Unpacker.Worker is
 		end loop;
 	exception
 		when E : Constraint_Error =>
-			Put_Line (Standard_Error, "[Fatal Error] Extract task failed due to invalid bounds: " & Exception_Message (E));
+			Put_Line (Standard_Error,
+				"[Fatal Error] Extract task failed due to invalid bounds: "
+				& Exception_Message (E));
 			raise Extract_Task_Exception;
-		when E : others => 
-			Put_Line (Standard_Error, "[Unknown Error] " & Exception_Message (E));
+		when E : others =>
+			Put_Line (Standard_Error,
+				"[Unknown Error] "
+				& Exception_Message (E));
 			raise Extract_Task_Exception;
 	end Extract_Task;
 
@@ -243,7 +293,7 @@ package body Unpacker.Worker is
 	-- Invoke free extract task from array
 	procedure Delegate_Extract_Task (P : String; E : Entry_Type) is
 	begin
-		Outer:
+		Outer :
 		loop
 			for I of Extract_Tasks loop
 				select
@@ -258,12 +308,16 @@ package body Unpacker.Worker is
 	end Delegate_Extract_Task;
 
 	-- Extract files
-	procedure Extract (File_Name : String; Output_Dir : String; EV : Entry_Array; BV : Block_Array; H : Header; Language_ID : String) is
-		-- Types
-		type Name_Type is (BY_REF, BY_ID);
-
+	procedure Extract (File_Name : String;
+		Output_Dir : String;
+		EV : Entry_Array;
+		BV : Block_Array;
+		H : Header;
+		Language_ID : String)
+	is
 		-- Variables
 		C : Natural := 0; -- Count (acts as iterator)
+		EI : Entry_Info_Type;
 	begin
 		-- Setup Extract Tasks with new File Name and Block Array
 		for I of Extract_Tasks loop
@@ -272,113 +326,36 @@ package body Unpacker.Worker is
 
 		-- Loop over Entries in Vector
 		for E of EV loop
-			declare -- Defaults for output
-				Subdir : String (1 .. 3) := "unk";
-				Ext : String (1 .. 3) := "bin";
-				Name : Name_Type := BY_ID;
-				Should_Extract : Boolean := True;
+			-- Get information about current Entry
+			EI := Get_Info (E, Language_ID);
 
-				-- Convert internal Entry data to enums
-				Entry_Reference : constant Entry_Reference_Type := To_Type (E.Reference);
-				Entry_Type : constant Entry_Type_Type := To_Type (E.Entry_Type);
-				Entry_Subtype : constant Entry_Subtype_Type := To_Type (E.Entry_Subtype);
-			begin
-				-- Check if entry is supported for extraction
-				case Entry_Type is
-					when THIRD_PARTY =>
-						case Entry_Subtype is
-							when WEM =>
-								case Entry_Reference is 
-									when JUNK => -- Some WEM entries in language packages contain no actual audio
-										Should_Extract := False;
-									when others =>
-										if Language_ID'Length = 0 then -- Language audio can share References
-											Name := BY_REF; -- All normal audio uses a unique Reference
-										end if;
-										Subdir := "wem";
-										Ext := "wem";
-								end case;
-							when BNK_IDX_BUF =>
-								if Language_ID'Length /= 0 then -- Banks are not currently useful for language-specific audio
-									Should_Extract := False;
-								end if;
-
-								Subdir := "bnk";
-								Ext := "bnk";
-							when others => Should_Extract := False;
-						end case;
-					when D1BE_WEM => -- For Destiny 1 BE only
-						case Entry_Subtype is
-							when D1BE_BNK_WEM =>
-								case Entry_Reference is
-									when JUNK =>
-										Should_Extract := False;
-									when others =>
-										if Language_ID'Length = 0 then
-											Name := BY_REF;
-										end if;
-										Subdir := "wem";
-										Ext := "wem";
-								end case;
-							when others =>
-								Should_Extract := False;
-						end case;
-					when D1BE_BNK => -- For Destiny 1 BE only
-						case Entry_Subtype is
-							when D1BE_BNK_WEM =>
-								if Language_ID'Length /= 0 then
-									Should_Extract := False;
-								end if;
-
-								Subdir := "bnk";
-								Ext := "bnk";
-							when others => Should_Extract := False;
-						end case;
-					when VIDEO =>
-						case Entry_Subtype is
-							when USM_TEXREF_DDS =>
-								Subdir := "usm";
-								Ext := "usm";
-							when others => Should_Extract := False;
-						end case;
-					when others =>
-						case Entry_Reference is
-							when STRING_BNK =>
-								Subdir := "txt";
-								Ext := "str";
-							when STRING_REF =>
-								Subdir := "txt";
-								Ext := "ref";
-							when JUNK => Should_Extract := False;
-							when others =>
-								--Put_Line ("[Debug] Unknown entry with reference " & Entry_Reference_Type'Image (Entry_Reference) & "(" & Unsigned_32'Image (E.Reference) & ") type " & Entry_Type_Type'Image (Entry_Type) & "(" & Unsigned_8'Image (E.Entry_Type) & ") subtype " & Entry_Subtype_Type'Image (Entry_Subtype) & "(" & Unsigned_8'Image (E.Entry_Subtype) &")"); -- TODO Debug
-								Should_Extract := False;
-						end case;
-				end case;
-
-				-- If should extract, read data and write to file
-				if Should_Extract then
-					-- Create output directory if necessary
-					if not Exists (Output_Dir & "/" & Subdir & "/") then
-						Create_Directory (Output_Dir & "/" & Subdir & "/");
-					end if;
-
-					-- Create language-specific output directory if necessary
-					if not Exists (Output_Dir & "/" & Subdir & "/" & Language_ID) then
-						Create_Directory (Output_Dir & "/" & Subdir & "/" & Language_ID);
-					end if;
-
-					declare
-						Path : constant String := Output_Dir & "/" & Subdir & "/" & Language_ID & "/" & (if Name = BY_ID then Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference)) & "." & Ext;
-					begin
---						Put_Line (Path); -- TODO Debug
-						if not Exists (Path) then
-							Delegate_Extract_Task (Path, E);
-						end if;
-					end;
+			-- If should extract, read data and write to file
+			if EI.Should_Extract then
+				-- Create output directory if necessary
+				if not Exists (Output_Dir & "/" & EI.Subdir & "/") then
+					Create_Directory (Output_Dir & "/" & EI.Subdir & "/");
 				end if;
-			end;
-			
+
+				-- Create language-specific output directory if necessary
+				if not Exists (Output_Dir & "/" & EI.Subdir & "/" & Language_ID) then
+					Create_Directory (Output_Dir & "/" & EI.Subdir & "/" & Language_ID);
+				end if;
+
+				declare
+					Path : constant String := Output_Dir & "/"
+						& EI.Subdir & "/"
+						& Language_ID & "/"
+						& (if EI.Name = By_ID then Hex_String (H.Package_ID)
+						& "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference))
+						& "." & EI.Ext;
+				begin
+--					Put_Line (Path); -- TODO Debug
+					if not Exists (Path) then
+						Delegate_Extract_Task (Path, E);
+					end if;
+				end;
+			end if;
+
 			C := C + 1;
 		end loop;
 
@@ -388,12 +365,20 @@ package body Unpacker.Worker is
 		end loop;
 	exception
 		when E : Directories.Use_Error | Stream_IO.Use_Error =>
-			Put_Line (Standard_Error, "[Fatal Error] Extract master task was unable to create or access file or directory: " & Exception_Message (E));
+			Put_Line (Standard_Error,
+				"[Fatal Error] Extract master task was unable to create "
+				& "or access file or directory: "
+				& Exception_Message (E));
 			return;
 	end Extract;
 
 	-- Primary unpacker function
-	procedure Unpack (Stream : in Stream_Access; File : in out Stream_IO.File_Type; File_Name : in String; Output_Dir : in String) is
+	procedure Unpack (Stream : in Stream_Access;
+		File : in out Stream_IO.File_Type;
+		File_Name : in String;
+		Output_Dir : in String)
+	is
+		-- Package Information
 		H : constant Header := Read_Header (Stream);
 		E : Entry_Array (1 .. Natural (H.Entry_Table_Size));
 		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
@@ -404,6 +389,11 @@ package body Unpacker.Worker is
 		Read_Entries (Stream, File, E, H);
 		Read_Blocks (Stream, File, B, H);
 		Close (File); -- No longer needed directly
-		Extract (File_Name, Output_Dir, E, B, H, Get_Language_ID (File_Name));
+		Extract (File_Name,
+			Output_Dir,
+			EV => E,
+			BV => B,
+			H => H,
+			Language_ID => Get_Language_ID (File_Name));
 	end Unpack;
 end Unpacker.Worker;

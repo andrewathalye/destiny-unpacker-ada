@@ -1,6 +1,6 @@
 with Unpacker; use Unpacker;
 with System;
---with Ada.Text_IO; use Ada; -- TODO Debug
+-- with Ada.Text_IO; use Ada; -- TODO Debug
 
 package body Unpacker.Package_File is
 	-- Local Types
@@ -8,7 +8,11 @@ package body Unpacker.Package_File is
 	for Discard_Array'Scalar_Storage_Order use System.Default_Bit_Order;
 
 	-- Read Blocks
-	procedure Read_Blocks (S : Stream_Access; F : File_Type; V : out Block_Array; H : Header) is
+	procedure Read_Blocks (S : Stream_Access;
+		F : File_Type;
+		V : out Block_Array;
+		H : Header)
+	is
 		-- May be read from Stream
 		-- Note: Must be reprocessed for Big Endian
 		type Raw_Block (Mode : Mode_Type) is record
@@ -34,17 +38,19 @@ package body Unpacker.Package_File is
 		Array_Index : Natural := V'First;
 
 		-- Iteration constants
-		SIZE : constant Unsigned_32 := (if Mode = d1 or Mode = d1be then 16#20# else 16#30#); -- D1 blocks lack GCM tag
-		BOUND : constant Unsigned_32 := H.Block_Table_Offset + H.Block_Table_Size * SIZE;
+		SIZE : constant Unsigned_32 :=
+			(if Mode = d1 or Mode = d1be then 16#20# else 16#30#);
+			-- D1 blocks lack GCM tag
+		BOUND : constant Unsigned_32 :=
+			H.Block_Table_Offset + H.Block_Table_Size * SIZE;
 	begin
 		Set_Index (F, Positive_Count (File_Index + 1)); -- Index starts with 1
-		while File_Index < BOUND loop	
+		while File_Index < BOUND loop
 			Raw_Block'Read (S, R);
 
 			-- Reprocess Big Endian Blocks
 			if Mode = d1be then
 				declare
-					--InB : aliased Raw_Block_LE;
 					R_BE : Raw_Block_BE
 					with
 						Import => True;
@@ -52,8 +58,7 @@ package body Unpacker.Package_File is
 					for R_BE'Address use R'Address;
 					pragma Warnings (On);
 				begin
-					--Copy (InB'Address, R.R_BE'Address, Raw_Block_BE'Size / 8);
-					R := Raw_Block (R_BE); 
+					R := Raw_Block (R_BE);
 				end;
 			end if;
 
@@ -67,13 +72,17 @@ package body Unpacker.Package_File is
 
 			-- TODO Debug
 --			Text_IO.Put_Line ("File Index" & Unsigned_32'Image (File_Index)
---				& " " & Raw_Block'Image (R)); 
+--				& " " & Raw_Block'Image (R));
 			-- TODO Debug
 		end loop;
 	end Read_Blocks;
 
 	-- Read Entries
-	procedure Read_Entries (S : Stream_Access; F : File_Type; V : out Entry_Array; H : Header) is
+	procedure Read_Entries (S : Stream_Access;
+		F : File_Type;
+		V : out Entry_Array;
+		H : Header)
+	is
 		type Raw_Entry is record
 			A : Unsigned_32;
 			B : Unsigned_32;
@@ -83,7 +92,8 @@ package body Unpacker.Package_File is
 
 		-- Big Endian Type
 		-- Note: C and D are flipped in this type
-		pragma Warnings (Off, "scalar storage order specified but no component clause");
+		pragma Warnings (Off,
+			"scalar storage order specified but no component clause");
 		type Raw_Entry_BE is new Raw_Entry;
 		pragma Warnings (On);
 
@@ -95,7 +105,8 @@ package body Unpacker.Package_File is
 		File_Index : Unsigned_32 := H.Entry_Table_Offset;
 		Array_Index : Natural := V'First;
 	begin
---		Text_IO.Put_Line ("[Debug] Start reading entries from " & Unsigned_32'Image (File_Index)); -- TODO Debug
+--		Text_IO.Put_Line ("[Debug] Start reading entries from "
+--			& Unsigned_32'Image (File_Index)); -- TODO Debug
 		Set_Index (F, Positive_Count (File_Index + 1)); -- Index in Ada starts with 1
 
 		while File_Index < H.Entry_Table_Offset + H.Entry_Table_Size * 16 loop
@@ -134,9 +145,11 @@ package body Unpacker.Package_File is
 			end case;
 
 			E.Starting_Block := R.C and 16#3FFF#;
-			E.Starting_Block_Offset := Shift_Left ((Shift_Right (R.C, 14) and 16#3FFF#), 4);
+			E.Starting_Block_Offset :=
+				Shift_Left ((Shift_Right (R.C, 14) and 16#3FFF#), 4);
 
-			E.File_Size := Shift_Left (R.D and 16#3FFFFFF#, 4) or (Shift_Right (R.C, 28) and 16#F#);
+			E.File_Size :=
+				Shift_Left (R.D and 16#3FFFFFF#, 4) or (Shift_Right (R.C, 28) and 16#F#);
 
 			V (Array_Index) := E; -- Add Entry to array
 
@@ -157,7 +170,7 @@ package body Unpacker.Package_File is
 		type D1_PreBL_Header is record
 			Discard_1 : Discard_Array (0 .. 3);
 			Package_ID : Unsigned_16; -- HEX 4 to 5
-			Discard_2 : Discard_Array (6 .. 16#17# );
+			Discard_2 : Discard_Array (6 .. 16#17#);
 			Build_ID : Unsigned_32; -- HEX 18 to 1B
 			Discard_3 : Discard_Array  (16#1C# .. 16#1F#);
 			Patch_ID : Unsigned_16; -- HEX 20 to 21
@@ -195,7 +208,8 @@ package body Unpacker.Package_File is
 		end record;
 
 		-- Suitable for reading directly from Stream_Access
-		-- Note: If Big Endian input must be handled, use the below method instead of reading this directly.
+		-- Note: If Big Endian input must be handled, use the below method instead
+		-- of reading this directly.
 		type Raw_Header (Mode : Mode_Type) is record
 			case Mode is
 				when d1 | d1be | prebl =>
@@ -229,18 +243,36 @@ package body Unpacker.Package_File is
 		case Mode is
 			when prebl =>
 				-- Correct internal data for Forsaken - Shadowkeep packages
-				-- Note: this is a designation about individual packages, not the whole folder
+				-- Note: this is a designation about individual packages
 				if R.H_D1PR.Build_ID > 16#10000# then
 					R.H_D1PR.Entry_Table_Offset := R.H_D1PR.Alternate_Entry_Table_Offset + 96;
-					R.H_D1PR.Block_Table_Offset := R.H_D1PR.Entry_Table_Offset + R.H_D1PR.Entry_Table_Size * 16 + 32;
+					R.H_D1PR.Block_Table_Offset :=
+						R.H_D1PR.Entry_Table_Offset + R.H_D1PR.Entry_Table_Size * 16 + 32;
 				end if;
-				H := (R.H_D1PR.Package_ID, R.H_D1PR.Build_ID, R.H_D1PR.Patch_ID, R.H_D1PR.Entry_Table_Size, R.H_D1PR.Entry_Table_Offset, R.H_D1PR.Block_Table_Size, R.H_D1PR.Block_Table_Offset);
-			when d1 | d1be => H := (R.H_D1PR.Package_ID, R.H_D1PR.Build_ID, R.H_D1PR.Patch_ID, R.H_D1PR.Entry_Table_Size, R.H_D1PR.Entry_Table_Offset, R.H_D1PR.Block_Table_Size, R.H_D1PR.Block_Table_Offset);
-			-- when d1be => H := (R.H_D1BE.Package_ID, R.H_D1BE.Build_ID, R.H_D1BE.Patch_ID, R.H_D1BE.Entry_Table_Size, R.H_D1BE.Entry_Table_Offset, R.H_D1BE.Block_Table_Size, R.H_D1BE.Block_Table_Offset);	
-			when postbl => H := (R.H_PO.Package_ID, R.H_PO.Build_ID, R.H_PO.Patch_ID, R.H_PO.Entry_Table_Size, R.H_PO.Entry_Table_Offset, R.H_PO.Block_Table_Size, R.H_PO.Block_Table_Offset);	
+				H := (R.H_D1PR.Package_ID,
+					R.H_D1PR.Build_ID,
+					R.H_D1PR.Patch_ID,
+					R.H_D1PR.Entry_Table_Size,
+					R.H_D1PR.Entry_Table_Offset,
+					R.H_D1PR.Block_Table_Size,
+					R.H_D1PR.Block_Table_Offset);
+			when d1 | d1be => H := (R.H_D1PR.Package_ID,
+				R.H_D1PR.Build_ID,
+				R.H_D1PR.Patch_ID,
+				R.H_D1PR.Entry_Table_Size,
+				R.H_D1PR.Entry_Table_Offset,
+				R.H_D1PR.Block_Table_Size,
+				R.H_D1PR.Block_Table_Offset);
+			when postbl => H := (R.H_PO.Package_ID,
+				R.H_PO.Build_ID,
+				R.H_PO.Patch_ID,
+				R.H_PO.Entry_Table_Size,
+				R.H_PO.Entry_Table_Offset,
+				R.H_PO.Block_Table_Size,
+				R.H_PO.Block_Table_Offset);
 		end case;
 
 		return H;
 	end Read_Header;
-	
+
 end Unpacker.Package_File;

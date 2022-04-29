@@ -44,11 +44,18 @@ package Unpacker.Package_File is
 	type Block_Array_Access is access Block_Array;
 
 	-- Free Block_Array_Access
-	procedure Free is new Unchecked_Deallocation (Object => Block_Array, Name => Block_Array_Access);
+	procedure Free is new Unchecked_Deallocation
+		(Object => Block_Array, Name => Block_Array_Access);
 
 	-- Subprograms
-	procedure Read_Blocks (S : Stream_Access; F : File_Type; V : out Block_Array; H : Header);
-	procedure Read_Entries (S : Stream_Access; F : File_Type; V : out Entry_Array; H : Header);
+	procedure Read_Blocks (S : Stream_Access;
+		F : File_Type;
+		V : out Block_Array;
+		H : Header);
+	procedure Read_Entries (S : Stream_Access;
+		F : File_Type;
+		V : out Entry_Array;
+		H : Header);
 	function Read_Header (S : Stream_Access) return Header;
 
 end Unpacker.Package_File;
