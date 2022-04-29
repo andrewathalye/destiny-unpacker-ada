@@ -83,13 +83,9 @@ package body Unpacker.Package_File is
 
 		-- Big Endian Type
 		-- Note: C and D are flipped in this type
+		pragma Warnings (Off, "scalar storage order specified but no component clause");
 		type Raw_Entry_BE is new Raw_Entry;
-		for Raw_Entry_BE use record
-			A at 0 range 0 .. 31;
-			B at 4 range 0 .. 31;
-			C at 12 range 0 .. 31;
-			D at 8 range 0 .. 31;
-		end record;
+		pragma Warnings (On);
 
 		for Raw_Entry_BE'Bit_Order use System.High_Order_First;
 		for Raw_Entry_BE'Scalar_Storage_Order use System.High_Order_First;

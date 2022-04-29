@@ -359,10 +359,12 @@ package body Unpacker.Worker is
 				-- If should extract, read data and write to file
 				if Should_Extract then
 					-- Create output directory if necessary
+					if not Exists (Output_Dir & "/" & Subdir & "/") then
+						Create_Directory (Output_Dir & "/" & Subdir & "/");
+					end if;
+
+					-- Create language-specific output directory if necessary
 					if not Exists (Output_Dir & "/" & Subdir & "/" & Language_ID) then
-						if not Exists (Output_Dir & "/" & Subdir & "/") then
-							Create_Directory (Output_Dir & "/" & Subdir & "/");
-						end if;
 						Create_Directory (Output_Dir & "/" & Subdir & "/" & Language_ID);
 					end if;
 
