@@ -5,7 +5,7 @@ with "ext_gpr/external_oodle.gpr";
 -- Note: Use this file only to generate binary releases
 project Destiny_Unpacker_Static is
 	for Languages use ("Ada");
-	for Source_Dirs use ("src");
+	for Source_Dirs use ("src", "ext_src/spec");
 	for Main use ("main.adb");
 	for Object_Dir use "obj";
 	for Exec_Dir use ".";

@@ -1,4 +1,5 @@
 #!/bin/sh
+cd ext_src
 git clone https://github.com/McSimp/linoodle.git --recursive
 patch linoodle/linoodle.cpp linoodle.cpp.patch
 mkdir ../ext_lib
