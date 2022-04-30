@@ -37,7 +37,7 @@ package body Unpacker is
 		-- Exception
 		Invalid_Arguments : exception;
 	begin -- Unpacker_Main
-		Put_Line ("Destiny Linux Unpacker v1.5");
+		Put_Line ("Destiny Linux Unpacker v1.6");
 
 		-- Check for sufficient arguments
 		if Argument_Count /= 3 then

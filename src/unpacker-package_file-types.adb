@@ -207,6 +207,10 @@ package body Unpacker.Package_File.Types is
 						EI.Subdir := "txt";
 						EI.Ext := "ref";
 						EI.Should_Extract := True;
+					when Audio_Reference =>
+						EI.Subdir := "vox"; -- For Voice
+						EI.Ext := "ref";
+						EI.Should_Extract := True;
 					when Junk => null;
 					when others => null;
 				end case;

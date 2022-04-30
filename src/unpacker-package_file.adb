@@ -122,11 +122,9 @@ package body Unpacker.Package_File is
 					pragma Warnings (Off, "overlay changes scalar storage order");
 					for R_BE'Address use R'Address;
 					pragma Warnings (On);
-					C : constant Unsigned_32 := R_BE.C;
 				begin
-					R_BE.C := R_BE.D;
-					R_BE.D := C;
-					R := Raw_Entry (R_BE);
+					R := (R_BE.A, R_BE.B, R_BE.D, R_BE.C);
+						-- Flip C and D, but otherwise copy everything identically
 				end;
 			end if;
 
