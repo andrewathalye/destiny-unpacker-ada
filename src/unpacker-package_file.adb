@@ -66,14 +66,15 @@ package body Unpacker.Package_File is
 					when prebl | postbl => R.GCM,
 					when d1 | d1be => Blank_GCM));
 
-			-- Increment indices
-			File_Index := File_Index + SIZE;
-			Array_Index := Array_Index + 1;
-
 			-- TODO Debug
 --			Text_IO.Put_Line ("File Index" & Unsigned_32'Image (File_Index)
 --				& " " & Raw_Block'Image (R));
 			-- TODO Debug
+
+			-- Increment indices
+			File_Index := File_Index + SIZE;
+			Array_Index := Array_Index + 1;
+
 		end loop;
 	end Read_Blocks;
 
@@ -242,11 +243,20 @@ package body Unpacker.Package_File is
 			when prebl =>
 				-- Correct internal data for Forsaken - Shadowkeep packages
 				-- Note: this is a designation about individual packages
-				if R.H_D1PR.Build_ID > 16#10000# then
-					R.H_D1PR.Entry_Table_Offset := R.H_D1PR.Alternate_Entry_Table_Offset + 96;
-					R.H_D1PR.Block_Table_Offset :=
-						R.H_D1PR.Entry_Table_Offset + R.H_D1PR.Entry_Table_Size * 16 + 32;
-				end if;
+				case R.H_D1PR.Build_ID is
+					when 16#10664# | 16#12E95# | 16#13649# | 16#14B68# | 16#15932# =>
+						-- Special case of certain video packages
+						R.H_D1PR.Entry_Table_Offset :=
+							R.H_D1PR.Alternate_Entry_Table_Offset + 96;
+						R.H_D1PR.Block_Table_Offset := 6400;
+					when 0 .. 16#10000# => null; -- Normal, pre-Forsaken packages
+					when others => -- Ordinary post-Forsaken packages
+						R.H_D1PR.Entry_Table_Offset :=
+							R.H_D1PR.Alternate_Entry_Table_Offset + 96;
+						R.H_D1PR.Block_Table_Offset :=
+							R.H_D1PR.Entry_Table_Offset + R.H_D1PR.Entry_Table_Size * 16 + 32;
+				end case;
+
 				H := (R.H_D1PR.Package_ID,
 					R.H_D1PR.Build_ID,
 					R.H_D1PR.Patch_ID,
@@ -269,6 +279,8 @@ package body Unpacker.Package_File is
 				R.H_PO.Block_Table_Size,
 				R.H_PO.Block_Table_Offset);
 		end case;
+
+--		Text_IO.Put_Line (Header'Image (H)); -- TODO Debug
 
 		return H;
 	end Read_Header;

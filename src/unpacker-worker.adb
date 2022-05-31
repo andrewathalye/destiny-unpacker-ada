@@ -383,8 +383,6 @@ package body Unpacker.Worker is
 		E : Entry_Array (1 .. Natural (H.Entry_Table_Size));
 		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
 	begin
---		Put_Line (Header'Image (H)); -- TODO Debug
-
 		Modify_Nonce (H); -- Only needed for Destiny 2
 		Read_Entries (Stream, File, E, H);
 		Read_Blocks (Stream, File, B, H);

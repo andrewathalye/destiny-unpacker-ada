@@ -19,8 +19,8 @@ package body Unpacker.Package_File.Types is
 	(case Mode is
 		when d1be =>
 			(case R is
-				-- when 16#00000000# => STRING_BNK,
-				-- when 16#00000000# => STRING_REF,
+				when 16#808008BE# => String_Bank, -- TODO Test
+				when 16#8080035A# => String_Reference,
 				when 16#FFFFFFFF# => Junk,
 				when others => Unknown),
 		when d1 =>
@@ -212,7 +212,9 @@ package body Unpacker.Package_File.Types is
 						EI.Ext := "ref";
 						EI.Should_Extract := True;
 					when Junk => null;
-					when others => null;
+					when others =>
+--						EI.Should_Extract := True;
+						null;
 				end case;
 		end case;
 		return EI;
