@@ -3,7 +3,10 @@ with Unpacker.Package_File; use Unpacker.Package_File;
 package Unpacker.Package_File.Types is
 
 	-- Enum type defining how entry output should be named
-	type Name_Type is (By_ID, By_Reference);
+	type Name_Type is (By_ID, By_Reference, By_Hex_Reference_LE);
+
+	-- Boolean - should By Reference output files be named in little-endian hex?
+	Use_Hex_Reference_LE : Boolean := False;
 
 	-- Record to help Worker determine whether Entry should be extracted
 	type Entry_Info_Type is record

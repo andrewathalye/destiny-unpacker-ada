@@ -345,8 +345,13 @@ package body Unpacker.Worker is
 					Path : constant String := Output_Dir & "/"
 						& EI.Subdir & "/"
 						& Language_ID & "/"
-						& (if EI.Name = By_ID then Hex_String (H.Package_ID)
-						& "-" & Hex_String (Unsigned_16 (C)) else Decimal_String (E.Reference))
+						& (case EI.Name is
+							when By_ID =>
+								Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)),
+							when By_Reference =>
+								Decimal_String (E.Reference),
+							when By_Hex_Reference_LE =>
+								Hex_String_LE (E.Reference))
 						& "." & EI.Ext;
 				begin
 --					Put_Line (Path); -- TODO Debug

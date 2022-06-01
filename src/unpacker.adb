@@ -48,10 +48,10 @@ package body Unpacker is
 		-- Exception
 		Invalid_Arguments : exception;
 	begin -- Unpacker_Main
-		Put_Line ("Destiny Linux Unpacker v1.8");
+		Put_Line ("Destiny Linux Unpacker v1.9");
 
 		Options : loop
-			case Getopt ("v: x: t:") is
+			case Getopt ("v: x: t: h") is
 				when 'v' => -- Version
 					begin
 						Mode := Mode_Type'Value (Parameter);
@@ -76,6 +76,9 @@ package body Unpacker is
 					exception
 						when Constraint_Error => raise Invalid_Arguments;
 					end;
+				when 'h' => -- Little Endian hex names for WEM files
+					Use_Hex_Reference_LE := True;
+
 				when ASCII.NUL => -- Remaining non-arguments
 					Package_Dir := new String'(Get_Argument);
 					Output_Dir := new String'(Get_Argument);
@@ -138,6 +141,9 @@ package body Unpacker is
 				& " possible using higher numbers.");
 			Put_Line ("-v: set the version of the game files to extract."
 				& " See the README for a list and the default.");
+			Put_Line ("-h: Name by-reference files using little endian hex."
+				& " This was the default in Ginsor's Audio Tool, and is"
+				& " still used by some project files.");
 			return;
 		when E : Storage_Error =>
 			Put_Line (Standard_Error,

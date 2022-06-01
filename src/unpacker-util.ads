@@ -18,6 +18,7 @@ package Unpacker.Util is
 	-- Subprograms
 	function Get_Language_ID (File_Name : String) return String;
 	function Hex_String (Num : Unsigned_16) return String;
+	function Hex_String_LE (Num : Unsigned_32) return String;
 	function Decimal_String (U : Unsigned_32) return String;
 	function Determine_Patch_Name (File_Name : String;
 		Patch_ID : Unsigned_16) return String;

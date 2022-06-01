@@ -173,7 +173,11 @@ package body Unpacker.Package_File.Types is
 								-- Some WEM entries in language packages contain no actual audio
 							when others =>
 								if Language_ID'Length = 0 then -- Language audio can share References
-									EI.Name := By_Reference; -- All normal audio uses a unique Reference
+									if Use_Hex_Reference_LE then
+										EI.Name := By_Hex_Reference_LE;
+									else
+										EI.Name := By_Reference;
+									end if;
 								end if;
 								EI.Subdir := "wem";
 								EI.Ext := "wem";
