@@ -29,6 +29,7 @@ package body Unpacker.Package_File is
 
 		-- BE specific
 		type Raw_Block_BE is new Raw_Block (Mode => d1be);
+
 		for Raw_Block_BE'Bit_Order use System.High_Order_First;
 		for Raw_Block_BE'Scalar_Storage_Order use System.High_Order_First;
 

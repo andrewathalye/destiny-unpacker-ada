@@ -177,12 +177,12 @@ package body Unpacker.Package_File.Types is
 								end if;
 								EI.Subdir := "wem";
 								EI.Ext := "wem";
-								EI.Should_Extract := True;
+								EI.Should_Extract := True and Optional_Types (wem);
 						end case;
 					when BNK_Index_Buffer =>
 						if Language_ID'Length = 0 then
 							-- Banks are not currently useful for language-specific audio
-							EI.Should_Extract := True;
+							EI.Should_Extract := True and Optional_Types (bnk);
 						end if;
 
 						EI.Subdir := "bnk";
@@ -194,7 +194,7 @@ package body Unpacker.Package_File.Types is
 					when USM_Text_Reference_DDS =>
 						EI.Subdir := "usm";
 						EI.Ext := "usm";
-						EI.Should_Extract := True;
+						EI.Should_Extract := True and Optional_Types (usm);
 					when others => null;
 				end case;
 			when others =>
@@ -202,18 +202,18 @@ package body Unpacker.Package_File.Types is
 					when String_Bank =>
 						EI.Subdir := "txt";
 						EI.Ext := "str";
-						EI.Should_Extract := True;
+						EI.Should_Extract := True and Optional_Types (txt);
 					when String_Reference =>
 						EI.Subdir := "txt";
 						EI.Ext := "ref";
-						EI.Should_Extract := True;
+						EI.Should_Extract := True and Optional_Types (txt);
 					when Audio_Reference =>
 						EI.Subdir := "vox"; -- For Voice
 						EI.Ext := "ref";
-						EI.Should_Extract := True;
+						EI.Should_Extract := True and Optional_Types (vox);
 					when Junk => null;
 					when others =>
---						EI.Should_Extract := True;
+						EI.Should_Extract := Optional_Types (unk);
 						null;
 				end case;
 		end case;

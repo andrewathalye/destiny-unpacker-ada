@@ -1,5 +1,4 @@
 with Interfaces.C; use Interfaces.C;
-with Unchecked_Deallocation;
 
 with OpenSSL; use OpenSSL;
 
@@ -11,11 +10,9 @@ package body Unpacker.Crypto is
 	-- Local Types
 	type Key_Type is array (1 .. 16) of Unsigned_8;
 	type Nonce_Type is array (1 .. 12) of Unsigned_8;
-	type int_access is access int;
 
-	-- Local Instances
-	procedure Free is new Unchecked_Deallocation
-		(Object => int, Name => int_access);
+	-- Local Exception
+	Cipher_Exception : exception;
 
 	-- AES decryption keys (sourced from C++ project)
 	AES_KEY_A : aliased constant Key_Type :=
@@ -54,14 +51,11 @@ package body Unpacker.Crypto is
 
 	-- Decrypt Block Buffer (B_B) and output in Decrypt Buffer (D_B)
 	procedure Decrypt_Block (B : Block; B_B : Data_Array; D_B : out Data_Array) is
-		-- Local Exception
-		Cipher_Exception : exception;
-
 		-- Cipher Internals
 		Cipher_Context : constant access EVP_CIPHER_CTX := EVP_CIPHER_CTX_new;
 		GCM : aliased GCM_Tag := B.GCM; -- Allow passing to C function
 
-		Out_Length : int_access := new int;
+		Out_Length : aliased int;
 
 	begin
 		-- Init Algorithm AES GCM Chaining Mode
@@ -84,7 +78,7 @@ package body Unpacker.Crypto is
 		-- Decrypt blockbuffer using AES GCM
 		if EVP_DecryptUpdate (Cipher_Context,
 			D_B'Address,
-			Out_Length,
+			Out_Length'Address,
 			B_B'Address,
 			B_B'Length) /= 1
 		then
@@ -92,7 +86,6 @@ package body Unpacker.Crypto is
 		end if;
 
 		-- Close Algorithm
-		Free (Out_Length);
 		EVP_CIPHER_CTX_free (Cipher_Context);
 	end Decrypt_Block;
 end Unpacker.Crypto;

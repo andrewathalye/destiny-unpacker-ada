@@ -32,8 +32,7 @@ To acquire oo2corelinux64.so.9, follow the instructions at https://github.com/gi
 >	use Oodle and related software, to which they own the copyright.
 >	If unsure, you might consider purchasing a license to Oodle 2.9.
 
-The program is used as follows:
-`./destinyunpacker [d1be, d1, prebl, or postbl] PACKAGES_DIRECTORY OUTPUT_DIRECTORY`  
+Run the program with no arguments to see the available options and syntax.
 
 If any errors occur during unpacking, please add them to an Issue so I can investigate.  
 
@@ -51,6 +50,16 @@ Doing this will effectively remove post-Beyond Light support, however it may be 
 
 >	Note: Even though this program is licensed under the GPL, its linking with Oodle makes the actual license unclear.
 >	I optionally make this program available under the terms of the LGPL for anyone whom that would assist.
+
+Reference
+---------
+
+Currently supported versions of the game are d1be (Destiny 1 Big Endian / PS3), d1 (Destiny 1 Little Endian / PS4),
+prebl (Destiny 2 before Beyond Light), and postbl (Destiny 2 after Beyond Light).  
+
+Currently available optional file formats are wem (raw audio), bnk (WWise composition format), usm (cutscene format), vox (voice line references), txt (string files and references), and unk (everything else).  
+
+If you would like to decode string files, please use https://github.com/andrewathalye/destiny-string-tool, as these have a convoluted format.  
 
 Credit
 ------

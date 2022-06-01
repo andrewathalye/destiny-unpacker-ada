@@ -40,7 +40,7 @@ package OpenSSL is
 
 	function EVP_DecryptUpdate (Context : access EVP_CIPHER_CTX;
 		Out_B : System.Address;
-		Out_Len : access int;
+		Out_Len : System.Address;
 		In_B : System.Address;
 		In_Len : int)
 	return int
@@ -54,5 +54,4 @@ package OpenSSL is
 		Import => True,
 		Convention => C,
 		External_Name => "EVP_CIPHER_CTX_free";
-
 end OpenSSL;

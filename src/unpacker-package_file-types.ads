@@ -13,6 +13,14 @@ package Unpacker.Package_File.Types is
 		Should_Extract : Boolean := False;
 	end record;
 
+	-- Optional Types
+	type Optional_Type is (bnk, wem, usm, txt, vox, unk);
+
+	-- Extract everything except unknown files by default
+	Optional_Types : array (Optional_Type) of Boolean := (unk => False,
+		others => True);
+	Optional_Types_Exclusive : Boolean := False; -- Only use optional types
+
 	-- Subprograms
 	function Get_Info (E : Entry_Type;
 		Language_ID : String)

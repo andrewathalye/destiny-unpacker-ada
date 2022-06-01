@@ -203,7 +203,7 @@ package body Unpacker.Worker is
 	-- Task Definition for Parallel Extractions
 	task type Extract_Task is
 		entry Setup (File_Name : String; BV : Block_Array);
-		entry Run (Path : String;  E : Entry_Type);
+		entry Run (Path : String; E : Entry_Type);
 		entry Done;
 	end Extract_Task;
 
@@ -233,7 +233,7 @@ package body Unpacker.Worker is
 					Open (In_F, In_File, File_Name, "shared=no");
 				end Setup;
 			or
-				accept Run (Path : String;  E : Entry_Type) do
+				accept Run (Path : String; E : Entry_Type) do
 					Task_Path := new String'(Path);
 					Task_E := E;
 				end Run;
@@ -287,15 +287,15 @@ package body Unpacker.Worker is
 	end Extract_Task;
 
 	-- Array of Extract Tasks
-	MAX_TASKS : constant Positive := 11; -- TODO Add adjustment
-	Extract_Tasks : array (1 .. MAX_TASKS) of Extract_Task;
+	type Extract_Task_Array is array (Positive range <>) of Extract_Task;
+	Extract_Tasks : access Extract_Task_Array;
 
 	-- Invoke free extract task from array
 	procedure Delegate_Extract_Task (P : String; E : Entry_Type) is
 	begin
 		Outer :
 		loop
-			for I of Extract_Tasks loop
+			for I of Extract_Tasks.all loop
 				select
 					I.Run (P, E);
 					exit Outer;
@@ -320,7 +320,7 @@ package body Unpacker.Worker is
 		EI : Entry_Info_Type;
 	begin
 		-- Setup Extract Tasks with new File Name and Block Array
-		for I of Extract_Tasks loop
+		for I of Extract_Tasks.all loop
 			I.Setup (File_Name, BV);
 		end loop;
 
@@ -360,7 +360,7 @@ package body Unpacker.Worker is
 		end loop;
 
 		-- Wait until all extraction tasks are complete
-		for I of Extract_Tasks loop
+		for I of Extract_Tasks.all loop
 			I.Done;
 		end loop;
 	exception
@@ -371,6 +371,12 @@ package body Unpacker.Worker is
 				& Exception_Message (E));
 			return;
 	end Extract;
+
+	-- Create extract tasks
+	procedure Create_Extract_Tasks (Count : Positive) is
+	begin
+		Extract_Tasks := new Extract_Task_Array (1 .. Count);
+	end Create_Extract_Tasks;
 
 	-- Primary unpacker function
 	procedure Unpack (Stream : in Stream_Access;
