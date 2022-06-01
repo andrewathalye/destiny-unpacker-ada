@@ -129,14 +129,14 @@ package body Unpacker is
 				& Command_Name
 				& " [OPTION] PACKAGE_DIR OUTPUT_DIR");
 			Put_Line ("Options:");
-			Put_Line ("-x, --extract: set the types of files to extract,"
-				& " separated by commas without spaces. See the README"
-				& " for a complete list. If this is not specified, all"
-				& " supported files will be extracted.");
-			Put_Line ("-t, --threads: set the number of worker threads."
+			Put_Line ("-x: set the types of files to extract."
+				& " One file type may be specified per -x"
+				& " option provided. Please see the README"
+				& " for a list of all file types.");
+			Put_Line ("-t: set the number of worker threads."
 				& " The default is one, but significant speedups are"
 				& " possible using higher numbers.");
-			Put_Line ("-v, --version: set the version of the game files to extract."
+			Put_Line ("-v: set the version of the game files to extract."
 				& " See the README for a list and the default.");
 			return;
 		when E : Storage_Error =>
