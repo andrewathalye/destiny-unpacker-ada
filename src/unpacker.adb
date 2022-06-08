@@ -7,6 +7,7 @@ with Ada.Exceptions; use Ada.Exceptions;
 with GNAT.Command_Line; use GNAT.Command_Line;
 
 with Unpacker.Worker; use Unpacker.Worker;
+with Unpacker.Util; use Unpacker.Util;
 with Unpacker.Package_File.Types; use Unpacker.Package_File.Types;
 
 package body Unpacker is
@@ -42,6 +43,7 @@ package body Unpacker is
 
 		Package_Dir : String_Access := null;
 		Output_Dir : String_Access := null;
+		Avoid_Languages : Boolean := False;
 
 		Worker_Threads : Positive := 1;
 
@@ -51,7 +53,7 @@ package body Unpacker is
 		Put_Line ("Destiny Linux Unpacker v2.0");
 
 		Options : loop
-			case Getopt ("v: x: t: h") is
+			case Getopt ("v: x: t: h l") is
 				when 'v' => -- Version
 					begin
 						Mode := Mode_Type'Value (Parameter);
@@ -76,6 +78,9 @@ package body Unpacker is
 					exception
 						when Constraint_Error => raise Invalid_Arguments;
 					end;
+				when 'l' => -- Do not unpack language files
+					Avoid_Languages := True;
+
 				when 'h' => -- Little Endian hex names for WEM files
 					Use_Hex_Reference_LE := True;
 
@@ -113,7 +118,10 @@ package body Unpacker is
 		Process_Entries :
 			while More_Entries (SE) loop
 				Get_Next_Entry (SE, D);
-				if Is_Latest_Patch_ID (Full_Name (D)) then
+				if Is_Latest_Patch_ID (Full_Name (D))
+				and -- Skip language files if directed to
+					not (Avoid_Languages and Get_Language_ID (Full_Name (D))'Length /= 0)
+				then
 					Put_Line ("[Info] Unpacking "
 						& Simple_Name (D));
 					Open (F, In_File, Full_Name (D));
@@ -144,6 +152,7 @@ package body Unpacker is
 			Put_Line ("-h: name by-reference files using little endian hex."
 				& " This was the default in Ginsor's Audio Tool, and is"
 				& " still used by some project files.");
+			Put_Line ("-l: do not extract language-specific entries.");
 			return;
 		when E : Storage_Error =>
 			Put_Line (Standard_Error,
