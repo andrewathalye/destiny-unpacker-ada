@@ -58,4 +58,36 @@ package body Unpacker.Util is
 		& Unsigned_16'Image (Patch_ID) (2
 			.. Unsigned_16'Image (Patch_ID)'Last) & ".pkg");
 
+	-- Optimised function to read data array as one block
+	procedure Read_Data_Array
+		(Stream : not null access Root_Stream_Type'Class;
+		Item : out Data_Array)
+	is
+		Item_Size : Stream_Element_Offset := Item'Size / Stream_Element'Size;
+
+		I_SEA : Stream_Element_Array (1 .. Item_Size)
+		with
+			Import => True;
+		for I_SEA'Address use Item'Address;
+	begin
+		Read (Stream.all, I_SEA, Item_Size);
+	end Read_Data_Array;
+
+	-- Optimised function to write data array as one block
+	procedure Write_Data_Array
+		(Stream : not null access Root_Stream_Type'Class;
+		Item : in Data_Array)
+	is
+		Item_Size : constant Stream_Element_Offset :=
+			Item'Size / Stream_Element'Size;
+
+		O_SEA : Stream_Element_Array (1 .. Item_Size)
+		with
+			Import => True;
+
+		for O_SEA'Address use Item'Address;
+	begin
+		Write (Stream.all, O_SEA);
+	end Write_Data_Array;
+
 end Unpacker.Util;

@@ -60,6 +60,8 @@ prebl (Destiny 2 before Beyond Light), and postbl (Destiny 2 after Beyond Light)
 Currently available optional file formats are wem (raw audio), bnk (WWise composition format), usm (cutscene format), vox (voice line references), txt (string files and references), and unk (everything else).  
 
 If you would like to decode string files, please use https://github.com/andrewathalye/destiny-string-tool, as these have a convoluted format.  
+If you need to convert WEM files to OGG, please use <not yet available>.  
+If you need to convert BNK files to a textual representation, please try WWiser or https://github.com/andrewathalye/wwtools-ada/  
 
 Credit
 ------

@@ -48,7 +48,7 @@ package body Unpacker is
 		-- Exception
 		Invalid_Arguments : exception;
 	begin -- Unpacker_Main
-		Put_Line ("Destiny Linux Unpacker v1.9");
+		Put_Line ("Destiny Linux Unpacker v2.0");
 
 		Options : loop
 			case Getopt ("v: x: t: h") is
@@ -141,7 +141,7 @@ package body Unpacker is
 				& " possible using higher numbers.");
 			Put_Line ("-v: set the version of the game files to extract."
 				& " See the README for a list and the default.");
-			Put_Line ("-h: Name by-reference files using little endian hex."
+			Put_Line ("-h: name by-reference files using little endian hex."
 				& " This was the default in Ginsor's Audio Tool, and is"
 				& " still used by some project files.");
 			return;

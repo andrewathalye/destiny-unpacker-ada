@@ -1,12 +1,25 @@
 with Unchecked_Deallocation;
 with Interfaces; use Interfaces;
+with Ada.Streams; use Ada.Streams;
 
 package Unpacker.Util is
 	-- Common Buffer Type
 	type Data_Array is array (Natural range <>) of Unsigned_8;
 	type Data_Array_Access is access Data_Array;
 
-	-- Constant String Access
+	-- Optimised Data Array I/O
+	procedure Read_Data_Array
+		(Stream : not null access Root_Stream_Type'Class;
+		Item : out Data_Array);
+	procedure Write_Data_Array
+		(Stream : not null access Root_Stream_Type'Class;
+		Item : in Data_Array);
+
+	-- Tie default Stream attributes
+	for Data_Array'Read use Read_Data_Array;
+	for Data_Array'Write use Write_Data_Array;
+
+	-- String Access
 	type String_Access is access String;
 
 	-- Unchecked Deallocation for Access Types

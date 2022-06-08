@@ -6,6 +6,8 @@ with Unpacker.Util; use Unpacker.Util;
 package Unpacker.Crypto is
 	-- Types
 	type GCM_Tag is array (1 .. 16) of Unsigned_8;
+	type Encryption_Type is (None, Key_A, Key_B);
+
 	Blank_GCM : constant GCM_Tag :=
 		(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 

@@ -66,7 +66,7 @@ package body Unpacker.Crypto is
 		-- Send correct key and nonce
 		if EVP_DecryptInit (Cipher_Context,
 			EVP_aes_128_gcm,
-			(if (B.Bit_Flag and 4) > 0 then AES_KEY_B'Address else AES_KEY_A'Address),
+			(if B.Encryption = Key_B then AES_KEY_B'Address else AES_KEY_A'Address),
 			Nonce'Address) /= 1
 		then
 			raise Cipher_Exception with "Failed to initialise cipher.";

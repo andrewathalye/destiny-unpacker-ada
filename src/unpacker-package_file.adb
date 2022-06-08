@@ -63,7 +63,20 @@ package body Unpacker.Package_File is
 				end;
 			end if;
 
-			V (Array_Index) := (R.Offset, R.Size, R.Patch_ID, R.Bit_Flag, (case Mode is
+			V (Array_Index) := (Offset => R.Offset,
+				Size => R.Size,
+				Patch_ID => R.Patch_ID,
+				Encryption => (if (R.Bit_Flag and 2) > 0 then
+					(if (R.Bit_Flag and 4) > 0 then Key_B else Key_A)
+				else
+					None),
+				Compression => (if (R.Bit_Flag and 1) > 0 then
+					(case Mode is
+					when d1be | d1 | prebl => Old_Type,
+					when postbl => New_Type)
+				else
+					None),
+				GCM => (case Mode is
 					when prebl | postbl => R.GCM,
 					when d1 | d1be => Blank_GCM));
 
@@ -150,6 +163,11 @@ package body Unpacker.Package_File is
 
 			E.File_Size :=
 				Shift_Left (R.D and 16#3FFFFFF#, 4) or (Shift_Right (R.C, 28) and 16#F#);
+
+			-- Must be calculated by finding number of blocks and adding to start
+			E.Last_Block :=
+				E.Starting_Block +
+				(E.Starting_Block_Offset + E.File_Size - 1) / BLOCK_SIZE;
 
 			V (Array_Index) := E; -- Add Entry to array
 

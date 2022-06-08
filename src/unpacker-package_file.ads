@@ -13,16 +13,21 @@ package Unpacker.Package_File is
 		Entry_Subtype : Unsigned_8;
 		Starting_Block : Unsigned_32;
 		Starting_Block_Offset : Unsigned_32;
+		Last_Block : Unsigned_32;
 		File_Size : Unsigned_32;
 	end record;
 
 	-- Block Normalised Type
 	-- Cannot be read from Stream (not all versions have GCM)
+	type Compression_Type is (None, Old_Type, New_Type);
+	BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
+
 	type Block is record
 		Offset : Unsigned_32;
 		Size : Unsigned_32;
 		Patch_ID : Unsigned_16;
-		Bit_Flag : Unsigned_16;
+		Encryption : Encryption_Type;
+		Compression : Compression_Type;
 		GCM : GCM_Tag;
 	end record;
 
@@ -40,12 +45,16 @@ package Unpacker.Package_File is
 
 	-- Array types for Entry and Block
 	type Entry_Array is array (Natural range <>) of Entry_Type;
+	type Entry_Array_Access is access Entry_Array;
 	type Block_Array  is array (Natural range <>) of Block;
 	type Block_Array_Access is access Block_Array;
 
-	-- Free Block_Array_Access
+	-- Instantiated subprograms
 	procedure Free is new Unchecked_Deallocation
 		(Object => Block_Array, Name => Block_Array_Access);
+	procedure Free is new Unchecked_Deallocation
+		(Object => Entry_Array, Name => Entry_Array_Access);
+
 
 	-- Subprograms
 	procedure Read_Blocks (S : Stream_Access;
