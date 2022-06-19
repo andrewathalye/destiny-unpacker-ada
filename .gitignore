@@ -5,3 +5,6 @@ output*
 packages*
 
 destinyunpacker
+
+.build.ninja.swp
+.ninja_log

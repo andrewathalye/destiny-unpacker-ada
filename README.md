@@ -53,6 +53,7 @@ GNAT GPL 2021 may also work, but I've begun to use Ada 2022 features so there ma
 
 To build from source on Windows, you will need a libcrypto.dll file and oo2core_X_win64.dll at build time.  
 Configure the GNAT project to use these by modifying external_openssl.gpr and external_oodle.gpr.  
+Submodule updating is optional, since linoodle is only used for Linux support.  
 Next modify unpacker-extract.adb so that it always uses the same path regardless of compression version.  
 
 As always, please feel free to reach out if you need any help.  
