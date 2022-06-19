@@ -1,5 +1,5 @@
 library project External_Linoodle is
-	for Languages use ("C");
+	for Languages use ("C", "C++");
 	for Library_Dir use "../ext_lib";
 	for Library_Kind use "dynamic";
 	for Library_Name use "linoodle";

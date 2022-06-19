@@ -1,0 +1,3 @@
+[submodule "ext_src/linoodle"]
+	path = ext_src/linoodle
+	url = https://github.com/andrewathalye/linoodle

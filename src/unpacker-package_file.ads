@@ -65,6 +65,6 @@ package Unpacker.Package_File is
 		F : File_Type;
 		V : out Entry_Array;
 		H : Header);
-	function Read_Header (S : Stream_Access) return Header;
+	function Read_Header (S : Stream_Access; PN : String) return Header;
 
 end Unpacker.Package_File;

@@ -1,5 +1,3 @@
-with Unpacker.Package_File; use Unpacker.Package_File;
-
 package Unpacker.Package_File.Types is
 
 	-- Enum type defining how entry output should be named
@@ -20,8 +18,8 @@ package Unpacker.Package_File.Types is
 	type Optional_Type is (bnk, wem, usm, txt, vox, unk);
 
 	-- Extract everything except unknown files by default
-	Optional_Types : array (Optional_Type) of Boolean := (unk => False,
-		others => True);
+	Optional_Types : array (Optional_Type) of Boolean := [unk => False,
+		others => True];
 	Optional_Types_Exclusive : Boolean := False; -- Only use optional types
 
 	-- Subprograms

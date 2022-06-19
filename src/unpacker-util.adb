@@ -26,24 +26,24 @@ package body Unpacker.Util is
 	-- Print Unsigned_16 as big endian hex string
 	function Hex_String (Num : Unsigned_16) return String is
 	begin
-		return	(Hex_Digits (Natural (Shift_Right (Num and 16#f000#, 12))),
+		return	[Hex_Digits (Natural (Shift_Right (Num and 16#f000#, 12))),
 			Hex_Digits (Natural (Shift_Right (Num and 16#f00#, 8))),
 			Hex_Digits (Natural (Shift_Right (Num and 16#f0#, 4))),
-			Hex_Digits (Natural (Num and 16#f#)));
+			Hex_Digits (Natural (Num and 16#f#))];
 	end Hex_String;
 
 	-- Print Unsigned_32 as little endian hex string
 	-- For compatibility with Ginsor Audio Tool names
 	function Hex_String_LE (Num : Unsigned_32) return String is
 	begin
-		return (Hex_Digits (Natural (Shift_Right (Num and 16#f0#, 4))),
+		return [Hex_Digits (Natural (Shift_Right (Num and 16#f0#, 4))),
 			Hex_Digits (Natural (Num and 16#f#)),
 			Hex_Digits (Natural (Shift_Right (Num and 16#f000#, 12))),
 			Hex_Digits (Natural (Shift_Right (Num and 16#f00#, 8))),
 			Hex_Digits (Natural (Shift_Right (Num and 16#f00000#, 20))),
 			Hex_Digits (Natural (Shift_Right (Num and 16#f0000#, 16))),
 			Hex_Digits (Natural (Shift_Right (Num and 16#f0000000#, 28))),
-			Hex_Digits (Natural (Shift_Right (Num and 16#f000000#, 24))));
+			Hex_Digits (Natural (Shift_Right (Num and 16#f000000#, 24)))];
 	end Hex_String_LE;
 
 	-- Returns Decimal String for Unsigned_32 without any padding

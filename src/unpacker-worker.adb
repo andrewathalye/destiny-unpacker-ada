@@ -120,7 +120,7 @@ package body Unpacker.Worker is
 		Output_Dir : in String)
 	is
 		-- Package Information
-		H : constant Header := Read_Header (Stream);
+		H : constant Header := Read_Header (Stream, Base_Name (File_Name));
 		E : Entry_Array (1 .. Natural (H.Entry_Table_Size));
 		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
 	begin

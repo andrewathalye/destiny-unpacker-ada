@@ -50,7 +50,7 @@ package body Unpacker is
 		-- Exception
 		Invalid_Arguments : exception;
 	begin -- Unpacker_Main
-		Put_Line ("Destiny Linux Unpacker v2.0");
+		Put_Line ("Destiny Linux Unpacker v2.1");
 
 		Options : loop
 			case Getopt ("v: x: t: h l") is
@@ -68,7 +68,7 @@ package body Unpacker is
 					end;
 				when 'x' => -- Optional Types
 					if not Optional_Types_Exclusive then
-						Optional_Types := (others => False);
+						Optional_Types := [others => False];
 						Optional_Types_Exclusive := True;
 					end if;
 

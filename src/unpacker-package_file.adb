@@ -1,4 +1,3 @@
-with Unpacker; use Unpacker;
 with System;
 -- with Ada.Text_IO; use Ada; -- TODO Debug
 
@@ -83,6 +82,7 @@ package body Unpacker.Package_File is
 			-- TODO Debug
 --			Text_IO.Put_Line ("File Index" & Unsigned_32'Image (File_Index)
 --				& " " & Raw_Block'Image (R));
+--			Text_IO.Put_Line (Block'Image (V (Array_Index)));
 			-- TODO Debug
 
 			-- Increment indices
@@ -182,8 +182,8 @@ package body Unpacker.Package_File is
 		end loop;
 	end Read_Entries;
 
-	-- Read Header given Stream. Scalar Order must be set beforehand.
-	function Read_Header (S : Stream_Access) return Header is
+	-- Read Header given Stream and Package Name. Scalar Order must be set.
+	function Read_Header (S : Stream_Access; PN : String) return Header is
 		-- PreBL and D1 Header Structure
 		type D1_PreBL_Header is record
 			Discard_1 : Discard_Array (0 .. 3);
@@ -263,17 +263,22 @@ package body Unpacker.Package_File is
 				-- Correct internal data for Forsaken - Shadowkeep packages
 				-- Note: this is a designation about individual packages
 				case R.H_D1PR.Build_ID is
-					when 16#10664# | 16#12E95# | 16#13649# | 16#14B68# | 16#15932# =>
-						-- Special case of certain video packages
-						R.H_D1PR.Entry_Table_Offset :=
-							R.H_D1PR.Alternate_Entry_Table_Offset + 96;
-						R.H_D1PR.Block_Table_Offset := 6400;
 					when 0 .. 16#10000# => null; -- Normal, pre-Forsaken packages
-					when others => -- Ordinary post-Forsaken packages
+					when others => -- Ordinary post-Forsaken packages with extra padding
 						R.H_D1PR.Entry_Table_Offset :=
 							R.H_D1PR.Alternate_Entry_Table_Offset + 96;
+
+						-- Block Table is 16 entries and 32 bytes after Entry Table Offset
 						R.H_D1PR.Block_Table_Offset :=
 							R.H_D1PR.Entry_Table_Offset + R.H_D1PR.Entry_Table_Size * 16 + 32;
+
+						-- Use hardcoded Block Table Offset for certain video packages
+						-- TODO: Determine why this is the case
+						if PN (PN'First + 4 .. PN'First + 8) = "video"
+							and R.H_D1PR.Package_ID /= 16#1E5# -- Pulled Pork cutscene unaffected
+						then
+							R.H_D1PR.Block_Table_Offset := 6400;
+						end if;
 				end case;
 
 				H := (R.H_D1PR.Package_ID,

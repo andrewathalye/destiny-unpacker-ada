@@ -9,7 +9,7 @@ package Unpacker.Crypto is
 	type Encryption_Type is (None, Key_A, Key_B);
 
 	Blank_GCM : constant GCM_Tag :=
-		(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+		[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
 
 	-- Modify nonce based upon package header contents
 	procedure Modify_Nonce (H : in Package_File.Header);

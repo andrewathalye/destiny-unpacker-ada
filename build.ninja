@@ -1,0 +1,56 @@
+cflags = -O2 -Wall $CFLAGS
+
+rule cc
+  command = cc $cflags -c $in -o $out
+
+rule cmake
+  command = cmake $in -G Ninja -B $target
+
+rule git_submodules
+  command = git submodule update --init --recursive
+
+rule gprbuild
+  command = gprbuild -P$in $options
+
+rule ninja
+  command = cd $chdir; ninja $target
+
+rule mv
+  command = mv $in
+
+rule rm
+  command = rm $options $targets || true
+
+rule ln
+  command = ln $in $out
+
+# Build Linoodle
+build ext_src/linoodle: git_submodules
+build ext_src/linoodle/build/build.ninja: cmake ext_src/linoodle
+  target = ext_src/linoodle/build
+build ext_src/linoodle/build/liblinoodle.so: ninja ext_src/linoodle/build/build.ninja
+  chdir = ext_src/linoodle/build
+  target = liblinoodle.so
+build ext_lib/liblinoodle.so: mv ext_src/linoodle/build/liblinoodle.so ext_lib/
+build linoodle: phony ext_lib/liblinoodle.so
+
+# Build Oodle-Dummy
+build ext_lib/liboo2corelinux64.so.9: cc ext_src/oo2core_dummy.c
+  cflags = $cflags -shared -fpic -Werror -pedantic
+build ext_lib/liboo2corelinux64.so: ln ext_lib/liboo2corelinux64.so.9
+build oodle: phony ext_lib/liboo2corelinux64.so.9 ext_lib/liboo2corelinux64.so
+
+build ext_libs: phony oodle linoodle
+
+# Build Destiny_Unpacker
+build destinyunpacker: gprbuild destiny_unpacker.gpr | ext_libs
+build destinyunpacker_static: gprbuild destiny_unpacker.gpr | ext_libs
+  options = -Xmode=static
+build destinyunpacker_dynamic: phony ext_libs destinyunpacker
+
+# Clean and Default
+build clean: rm
+  options = -r
+  targets = destinyunpacker destinyunpacker_static obj ext_src/linoodle/build ext_lib/*
+
+default destinyunpacker_dynamic

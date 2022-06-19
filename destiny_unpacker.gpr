@@ -3,21 +3,41 @@ with "ext_gpr/external_linoodle.gpr";
 with "ext_gpr/external_oodle.gpr";
 
 project Destiny_Unpacker is
+	type Mode_Type is ("dynamic", "static");
+	Mode : Mode_Type := external ("mode", "dynamic");
+	
 	for Languages use ("Ada");
 	for Source_Dirs use ("src", "ext_src/spec");
 	for Main use ("main.adb");
-	for Object_Dir use "obj";
+	for Object_Dir use "obj/" & Mode;
 	for Exec_Dir use ".";
 
 	package Builder is
-		for Executable ("main.adb") use "destinyunpacker";
+		case Mode is
+			when "dynamic" =>
+				for Executable ("main.adb") use "destinyunpacker";
+			when "static" =>
+				for Executable ("main.adb") use "destinyunpacker_static";
+		end case;
 	end Builder;
 
 	package Compiler is
-		for Switches ("Ada") use ("-gnatwa", "-gnatyabCefiklmnprt", "-gnatVa", "-O2", "-march=native", "-gnat2022");
+		Common_Switches := ("-gnatwa", "-gnatyabCefiklmnprt", "-gnatVa", "-O2", "-gnat2022");
+
+		case Mode is
+			when "dynamic" =>
+				for Switches ("Ada") use Common_Switches & "-march=native";
+			when "static" =>
+				for Switches ("Ada") use Common_Switches;
+		end case;
 	end Compiler;
 
 	package Binder is
-		for Switches ("Ada") use ("-shared");
+		case Mode is
+			when "dynamic" =>
+				for Switches ("Ada") use ("-shared");
+			when "static" => 
+				for Switches ("Ada") use ("-static");
+		end case;
 	end Binder;
 end Destiny_Unpacker;
