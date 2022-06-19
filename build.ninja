@@ -40,17 +40,14 @@ build ext_lib/liboo2corelinux64.so.9: cc ext_src/oo2core_dummy.c
 build ext_lib/liboo2corelinux64.so: ln ext_lib/liboo2corelinux64.so.9
 build oodle: phony ext_lib/liboo2corelinux64.so.9 ext_lib/liboo2corelinux64.so
 
-build ext_libs: phony oodle linoodle
-
 # Build Destiny_Unpacker
-build destinyunpacker: gprbuild destiny_unpacker.gpr | ext_libs
-build destinyunpacker_static: gprbuild destiny_unpacker.gpr | ext_libs
+build destinyunpacker: gprbuild destiny_unpacker.gpr | oodle linoodle
+build destinyunpacker_static: gprbuild destiny_unpacker.gpr | oodle linoodle
   options = -Xmode=static
-build destinyunpacker_dynamic: phony ext_libs destinyunpacker
 
 # Clean and Default
 build clean: rm
   options = -r
   targets = destinyunpacker destinyunpacker_static obj ext_src/linoodle/build ext_lib/*
 
-default destinyunpacker_dynamic
+default destinyunpacker
