@@ -9,14 +9,11 @@ rule cmake
 rule git_submodules
   command = git submodule update --init --recursive
 
-rule gprbuild
-  command = gprbuild -P$in $options
-
 rule ninja
   command = cd $chdir; ninja $target
 
 rule mv
-  command = mv $in
+  command = mv $in $out
 
 rule rm
   command = rm $options $targets || true
@@ -31,7 +28,7 @@ build ext_src/linoodle/build/build.ninja: cmake ext_src/linoodle
 build ext_src/linoodle/build/liblinoodle.so: ninja ext_src/linoodle/build/build.ninja
   chdir = ext_src/linoodle/build
   target = liblinoodle.so
-build ext_lib/liblinoodle.so: mv ext_src/linoodle/build/liblinoodle.so ext_lib/
+build ext_lib/liblinoodle.so: mv ext_src/linoodle/build/liblinoodle.so
 build linoodle: phony ext_lib/liblinoodle.so
 
 # Build Oodle-Dummy
@@ -40,14 +37,9 @@ build ext_lib/liboo2corelinux64.so.9: cc ext_src/oo2core_dummy.c
 build ext_lib/liboo2corelinux64.so: ln ext_lib/liboo2corelinux64.so.9
 build oodle: phony ext_lib/liboo2corelinux64.so.9 ext_lib/liboo2corelinux64.so
 
-# Build Destiny_Unpacker
-build destinyunpacker: gprbuild destiny_unpacker.gpr | oodle linoodle
-build destinyunpacker_static: gprbuild destiny_unpacker.gpr | oodle linoodle
-  options = -Xmode=static
-
 # Clean and Default
 build clean: rm
   options = -r
-  targets = destinyunpacker destinyunpacker_static obj ext_src/linoodle/build ext_lib/*
+  targets = ext_src/linoodle/build ext_lib
 
-default destinyunpacker
+default oodle linoodle

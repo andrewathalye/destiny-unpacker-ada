@@ -3,9 +3,6 @@ Destiny Ada Unpacker
 
 This is a high-performance multithreaded unpacker for Destiny 1 and 2, written in Ada.  
 
-On Linux, it makes use of Linoodle (https://www.github.com/McSimp/linoodle) in order to
-interface with Oodle, the compressor used by Destiny.
-
 >	Note: To comply with legal requirements, only use this program for personal,
 >	educative purposes and to bolster interoperability of Destiny (2) with other
 >	programs. Do not publish the contents of any Destiny package files without
@@ -20,26 +17,30 @@ download a release from the Releases section (if available).
 Destiny 1 and 2 packages are compressed with a library called Oodle, which is
 distributed under an all rights reserved license and thus cannot be included.
 
-In order to decompress files, do the following:  
-	- If you intend to use Destiny 1 or Destiny 2 before Beyond Light,
-	acquire oo2core_3_win64.dll and place it in the same directory as the tool.  
-	- (On Linux) If you intend to use Destiny 2 after Beyond Light,
-	acquire oo2corelinux64.so.9 and replace the dummy file in ext_lib.  
-	- (On Windows) If you intend to use Destiny 2 after Beyond Light,
-	acquire oo2core_9_win64.dll and place it in the same directory as the tool.
+**Please note:**  
 
-To acquire oo2core_3_win64.dll or oo2core_9_win64.dll, just look inside the bin directory of the Destiny 2 Shadowkeep depot folder.  
+Oodle libraries are _not_ required if you are only interested in extracting WEM music
+files from the game. "Dummy" versions of these libraries are included that do not work,
+but will allow program operation.  
+
+If you do need to extract other file types, however, follow these steps:  
+	- If you intend to use Destiny 1 or Destiny 2 before Beyond Light,
+	acquire oo2core_3_win64.dll from the Destiny 2 Shadowkeep game install
+	directory and place it in the same directory as the tool.
+
+	- (On Linux) If you intend to use Destiny 2 after Beyond Light,
+	acquire oo2corelinux64.so.9 and replace the dummy file in ext_lib. You can find this
+	file in the Unreal Engine 4/5 Source Code Repository. See the warning in the Reference
+	section to understand the legal implications of using these files.  
+
+	- (On Windows) If you intend to use Destiny 2 after Beyond Light,
+	acquire oo2core_9_win64.dll and place it in the same directory as the tool. You can
+	get this file from the Destiny 2 Witch Queen game install.  
 
 Windows-specific information:
-You should rename the Oodle library you currently need to oo2core_3_win64.dll and place it alongside the unpacker executable, regardless of the actual version.
-
-Linux-specific information:
-To acquire liboo2corelinux64.so.9, follow the instructions at https://github.com/gildor2/UEViewer/tree/master/libs/oodle. This process is more involved, so please feel free to reach out for help. Please note that only the Windows version is needed if you intend to unpack Destiny 1 / Pre-Beyond Light.  
-
->	Note: This program is for use for educational purposes only.
->	RAD Game Tools, Epic Game Tools, etc. reserve the right to define the terms under which users may
->	use Oodle and related software, to which they own the copyright.
->	If unsure, you might consider purchasing a license to Oodle 2.9.
+You should rename the Oodle library you currently need to oo2core_3_win64.dll and place it alongside the unpacker executable, regardless of the actual version.  
+If, for example, you want to unpack a Beyond Light package, you would rename oo2core_9_win64.dll to oo2core_3_win64.dll.  
+If you instead want to unpack Shadowkeep or Destiny 1, you would rename the original oo2core_3_win64.dll file back to its original name.  
 
 Run the program with no arguments to see the available options and syntax.
 
@@ -51,11 +52,6 @@ Building from Source on Windows
 To build from source, you'll need GNAT FSF 12.1.0 or higher (from GCC). GPRBuild is also required.  
 GNAT GPL 2021 may also work, but I've begun to use Ada 2022 features so there may be some edge cases.  
 
-To build from source on Windows, you will need a libcrypto.dll file and oo2core_X_win64.dll at build time.  
-Configure the GNAT project to use these by modifying external_openssl.gpr and external_oodle.gpr.  
-Submodule updating is optional, since linoodle is only used for Linux support.  
-Next modify unpacker-extract.adb so that it always uses the same path regardless of compression version.  
-
 As always, please feel free to reach out if you need any help.  
 
 Run `gprbuild -Pdestinyunpacker -Xmode=static` to build the program. A dynamic build is not recommended for Windows because GNAT
@@ -66,17 +62,24 @@ Building from Source on Linux
 To build from source, you'll need GNAT FSF 12.1.0 or higher (from GCC). GPRBuild, Ninja, and OpenSSL are also needed. 
 GNAT GPL 2021 may also work, but I've begun to use Ada 2022 features so there may be some edge cases.  
 
-Run `ninja` to build the project. Run `ninja destinyunpacker_static` to produce a release build.   
-This will produce a build of the program with a "dummy" Oodle SO and no Windows Oodle DLL.
-Follow the instructions above to acquire the necessary files.
-Please note that WEM files are not compressed - you can stick with the dummy SO for that, but a DLL is required
-for the program to launch.  
+Important: Make sure to clone this repository, rather than downloading a source code tarball, since it uses Git submodules.  
+Run `ninja` to build necessary library files.  
+This will produce a build of linoodle and the "dummy" library files necessary to build the program.  
+Follow the instructions above to acquire the real Oodle libraries if you need them.  
 
->	Note: Even though this program is licensed under the GPL, its linking with Oodle makes the actual license unclear.
->	I optionally make this program available under the terms of the LGPL for anyone whom that would assist.
+Run `gprbuild -Pdestinyunpacker` to build the program in development mode, or `gprbuild -Pdestinyunpacker -Xmode=static` for release mode.  
+Development mode produces smaller, faster executables, but they cannot be given to other people or released since they have GNAT dependencies.  
 
 Reference
 ---------
+
+>	Note: This program is for use for educational purposes only.
+>	RAD Game Tools, Epic Game Tools, etc. reserve the right to define the terms under which users may
+>	use Oodle and related software, to which they own the copyright.
+>	If unsure, you might consider purchasing a license to Oodle 2.9.
+
+>	Even though this program is licensed under the GPL, its linking with Oodle makes the actual license unclear.
+>	I optionally make this program available under the terms of the LGPL v3 for anyone whom that would assist.
 
 Currently supported versions of the game are d1be (Destiny 1 Big Endian / PS3), d1 (Destiny 1 Little Endian / PS4),
 prebl (Destiny 2 before Beyond Light), and postbl (Destiny 2 after Beyond Light).  
@@ -97,4 +100,4 @@ https://www.github.com/nblockbuster/DestinyUnpackerCPP and
 https://www.github.com/MontagueM/DestinyUnpackerCPP
 
 Additionally, I give my thanks to McSimp and https://github.com/McSimp/linoodle, without which
-I would have been unable to decompress txtp files on Linux
+I would have been unable to decompress most pre-Beyond Light packages on Linux.
