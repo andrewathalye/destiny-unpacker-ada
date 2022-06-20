@@ -1,7 +1,7 @@
 cflags = -O2 -Wall $CFLAGS
 
 rule cc
-  command = cc $cflags -c $in -o $out
+  command = cc $cflags $in -o $out
 
 rule cmake
   command = cmake $in -G Ninja -B $target
@@ -19,7 +19,7 @@ rule rm
   command = rm $options $targets || true
 
 rule ln
-  command = ln $options $in $out
+  command = ln $options $original $out
 
 # Build Linoodle
 build ext_src/linoodle: git_submodules
@@ -34,7 +34,8 @@ build linoodle: phony ext_lib/liblinoodle.so
 # Build Oodle-Dummy
 build ext_lib/liboo2corelinux64.so.9: cc ext_src/oo2core_dummy.c
   cflags = $cflags -shared -fpic -Werror -pedantic
-build ext_lib/liboo2corelinux64.so: ln ext_lib/liboo2corelinux64.so.9
+build ext_lib/liboo2corelinux64.so: ln | ext_lib/liboo2corelinux64.so.9
+  original = liboo2corelinux64.so.9
   options = -s
 build oodle: phony ext_lib/liboo2corelinux64.so.9 ext_lib/liboo2corelinux64.so
 
