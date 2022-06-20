@@ -8,3 +8,5 @@ destinyunpacker
 
 .build.ninja.swp
 .ninja_log
+
+ext_src/linoodle/build/

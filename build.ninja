@@ -19,7 +19,7 @@ rule rm
   command = rm $options $targets || true
 
 rule ln
-  command = ln $in $out
+  command = ln $options $in $out
 
 # Build Linoodle
 build ext_src/linoodle: git_submodules
@@ -35,6 +35,7 @@ build linoodle: phony ext_lib/liblinoodle.so
 build ext_lib/liboo2corelinux64.so.9: cc ext_src/oo2core_dummy.c
   cflags = $cflags -shared -fpic -Werror -pedantic
 build ext_lib/liboo2corelinux64.so: ln ext_lib/liboo2corelinux64.so.9
+  options = -s
 build oodle: phony ext_lib/liboo2corelinux64.so.9 ext_lib/liboo2corelinux64.so
 
 # Clean and Default
