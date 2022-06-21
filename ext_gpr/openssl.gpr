@@ -1,0 +1,16 @@
+library project OpenSSL is
+	for Languages use ("C");
+	for Library_Kind use "dynamic";
+	for Externally_Built use "true";
+
+	OS := external ("os", "linux");
+	case OS is
+		when "linux" =>
+			for Library_Dir use "/usr/lib64";
+			for Library_Name use "crypto";
+		when "windows" =>
+			for Library_Dir use "../ext_lib";
+			for Library_Name use "libcrypto-3-x64";
+		when others => null;
+	end case;
+end OpenSSL;

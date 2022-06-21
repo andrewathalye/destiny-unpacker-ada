@@ -1,7 +1,0 @@
-library project External_Oodle is
-	for Languages use ("C");
-	for Library_Dir use "../ext_lib";
-	for Library_Kind use "dynamic";
-	for Library_Name use "oo2corelinux64";
-	for Externally_Built use "true";
-end External_Oodle;

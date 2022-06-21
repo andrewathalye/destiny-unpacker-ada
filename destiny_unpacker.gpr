@@ -1,17 +1,27 @@
-with "ext_gpr/external_openssl.gpr";
-with "ext_gpr/external_linoodle.gpr";
-with "ext_gpr/external_oodle.gpr";
+with "ext_gpr/oodle.gpr";
+with "ext_gpr/openssl.gpr";
 
 project Destiny_Unpacker is
 	type Mode_Type is ("dynamic", "static");
 	Mode : Mode_Type := external ("mode", "dynamic");
-	
-	for Languages use ("Ada");
-	for Source_Dirs use ("src", "ext_src/spec");
+
+	type OS_Type is ("linux", "windows");
+	OS : OS_Type := external ("os", "linux");
+
+	Common_Source_Dirs := ("src", "ext_src/spec");
 	for Main use ("main.adb");
 	for Object_Dir use "obj/" & Mode;
 	for Exec_Dir use ".";
 
+	-- Use configuration for each platform
+	case OS is
+		when "linux" =>
+			for Source_Dirs use Common_Source_Dirs & "src/linux/";
+		when "windows" =>
+			for Source_Dirs use Common_Source_Dirs & "src/windows/";
+	end case;
+
+	-- Change executable name by build type
 	package Builder is
 		case Mode is
 			when "dynamic" =>
@@ -21,6 +31,7 @@ project Destiny_Unpacker is
 		end case;
 	end Builder;
 
+	-- Setup warnings and optimisation
 	package Compiler is
 		Common_Switches := ("-gnatwa", "-gnatyabCefiklmnprt", "-gnatVa", "-O2", "-gnat2022");
 
@@ -32,6 +43,7 @@ project Destiny_Unpacker is
 		end case;
 	end Compiler;
 
+	-- Configure static or shared build
 	package Binder is
 		case Mode is
 			when "dynamic" =>
@@ -40,4 +52,13 @@ project Destiny_Unpacker is
 				for Switches ("Ada") use ("-static");
 		end case;
 	end Binder;
+
+	-- Link linoodle on Linux (for GPRBuild reasons has to be done here)
+	package Linker is
+		case OS is
+			when "linux" =>
+				for Switches ("Ada") use ("-llinoodle");
+			when others => null;
+		end case;
+	end Linker;
 end Destiny_Unpacker;

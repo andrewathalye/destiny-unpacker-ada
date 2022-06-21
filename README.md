@@ -24,20 +24,22 @@ files from the game. "Dummy" versions of these libraries are included that do no
 but will allow program operation.  
 
 If you do need to extract other file types, however, follow these steps:  
+
 	- If you intend to use Destiny 1 or Destiny 2 before Beyond Light,
 	acquire oo2core_3_win64.dll from the Destiny 2 Shadowkeep game install
 	directory and place it in the same directory as the tool.
 
 	- (On Linux) If you intend to use Destiny 2 after Beyond Light,
-	acquire oo2corelinux64.so.9 and replace the dummy file in ext_lib. You can find this
-	file in the Unreal Engine 4/5 Source Code Repository. See the warning in the Reference
+	acquire oo2corelinux64.so.9 and replace the dummy file in ext_lib with it.
+	You can find this file in the Unreal Engine 4/5 Source Code Repository.
+	See the warning in the Reference
 	section to understand the legal implications of using these files.  
 
 	- (On Windows) If you intend to use Destiny 2 after Beyond Light,
 	acquire oo2core_9_win64.dll and place it in the same directory as the tool. You can
 	get this file from the Destiny 2 Witch Queen game install.  
 
-Windows-specific information:
+Windows-specific information:  
 You should rename the Oodle library you currently need to oo2core_3_win64.dll and place it alongside the unpacker executable, regardless of the actual version.  
 If, for example, you want to unpack a Beyond Light package, you would rename oo2core_9_win64.dll to oo2core_3_win64.dll.  
 If you instead want to unpack Shadowkeep or Destiny 1, you would rename the original oo2core_3_win64.dll file back to its original name.  
@@ -54,8 +56,11 @@ GNAT GPL 2021 may also work, but I've begun to use Ada 2022 features so there ma
 
 As always, please feel free to reach out if you need any help.  
 
-Run `gprbuild -Pdestinyunpacker -Xmode=static` to build the program. A dynamic build is not recommended for Windows because GNAT
-libraries are unlikely to be on your path.  
+You'll need oo2core_3_win64.dll in the main directory alongside destiny_unpacker.gpr, as well as libcrypto-3-x64.dll in the ext_lib folder
+for the build to succeed.  
+
+Run `gprbuild -Pdestinyunpacker -Xmode=static -Xos=windows` to build the program. A dynamic build is not recommended for Windows because GNAT
+libraries are unlikely to be on your PATH.
 
 Building from Source on Linux
 -----------------------------

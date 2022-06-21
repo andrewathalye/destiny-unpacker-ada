@@ -4,8 +4,7 @@ with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Exceptions; use Ada.Exceptions;
 with Ada.Directories; use Ada.Directories;
 
-with linoodle; use linoodle;
-with oodle; use oodle;
+with Config; use Config; -- Platform-specific configuration
 
 with Unpacker.Crypto; use Unpacker.Crypto;
 with Unpacker.Util; use Unpacker.Util;
@@ -162,15 +161,15 @@ package body Unpacker.Extract is
 						Decompress_B (Decrypt_B'Range) := Decrypt_B;
 							-- Can be shorter if last block
 					when Old_Type => -- LZH, oftentimes. Requires old Oodle.
-						-- N.B. For Windows, this can be removed since only one
-						-- Oodle DLL at a time is currently supported
-						Discard_Size := LinoodleLZ_Decompress (Decrypt_B'Address,
+						-- N.B. The function called depends on platform
+						Discard_Size := Config_Old_OodleLZ_Decompress (Decrypt_B'Address,
 							size_t (Current_Block.Size),
 							Decompress_B'Address,
 							size_t (BLOCK_SIZE),
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 					when New_Type  => -- Unknown, uses new Oodle.
-						Discard_Size := OodleLZ_Decompress (Decrypt_B'Address,
+						-- N.B. The function called depends on platform
+						Discard_Size := Config_New_OodleLZ_Decompress (Decrypt_B'Address,
 							size_t (Current_Block.Size),
 							Decompress_B'Address,
 							size_t (BLOCK_SIZE),

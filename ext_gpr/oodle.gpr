@@ -1,0 +1,20 @@
+library project Oodle is
+	for Library_Kind use "dynamic";
+
+	OS := external ("os", "linux");
+	case OS is
+		when "linux" =>
+			for Source_Dirs use ("../ext_src/oo2core_dummy/src/");
+			for Object_Dir use "../ext_src/oo2core_dummy/obj/";
+			for Library_Name use "oo2corelinux64";
+			for Library_Dir use "../ext_lib";
+		when "windows" =>
+			for Languages use ("C");
+			for Library_Name use "oo2core_3_win64";
+			for Library_Dir use "..";
+			for Externally_Built use "true";
+		when others => null;
+	end case;
+end Oodle;
+
+
