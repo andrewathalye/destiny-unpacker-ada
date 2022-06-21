@@ -5,7 +5,7 @@ project Destiny_Unpacker is
 	type Mode_Type is ("dynamic", "static");
 	Mode : Mode_Type := external ("mode", "dynamic");
 
-	type OS_Type is ("linux", "windows");
+	type OS_Type is ("linux", "Windows_NT");
 	OS : OS_Type := external ("os", "linux");
 
 	Common_Source_Dirs := ("src", "ext_src/spec");
@@ -17,7 +17,7 @@ project Destiny_Unpacker is
 	case OS is
 		when "linux" =>
 			for Source_Dirs use Common_Source_Dirs & "src/linux/";
-		when "windows" =>
+		when "Windows_NT" =>
 			for Source_Dirs use Common_Source_Dirs & "src/windows/";
 	end case;
 

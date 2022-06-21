@@ -59,7 +59,7 @@ As always, please feel free to reach out if you need any help.
 You'll need oo2core_3_win64.dll in the main directory alongside destiny_unpacker.gpr, as well as libcrypto-3-x64.dll in the ext_lib folder
 for the build to succeed.  
 
-Run `gprbuild -Pdestinyunpacker -Xmode=static -Xos=windows` to build the program. A dynamic build is not recommended for Windows because GNAT
+Run `gprbuild -Pdestinyunpacker -Xmode=static` to build the program. A dynamic build is not recommended for Windows because GNAT
 libraries are unlikely to be on your PATH.
 
 Building from Source on Linux
