@@ -24,7 +24,7 @@ package body Unpacker.Worker is
 		Language_ID : String)
 	is
 		-- Variables
-		C : Natural := 0; -- Count (acts as iterator)
+		Entry_ID : Natural := 0; -- Entry ID Iterator
 		EI : Entry_Info_Type;
 	begin
 		-- Setup Extract Tasks with new File Name and Block Array
@@ -55,7 +55,7 @@ package body Unpacker.Worker is
 						& Language_ID & "/"
 						& (case EI.Name is
 							when By_ID =>
-								Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (C)),
+								Hex_String (H.Package_ID) & "-" & Hex_String (Unsigned_16 (Entry_ID)),
 							when By_Reference =>
 								Decimal_String (E.Reference),
 							when By_Hex_Reference_LE =>
@@ -86,7 +86,7 @@ package body Unpacker.Worker is
 				end;
 			end if;
 
-			C := C + 1;
+			Entry_ID := @ + 1;
 		end loop;
 
 		-- Wait until all extraction tasks are complete

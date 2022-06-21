@@ -86,7 +86,7 @@ package body Unpacker.Extract is
 		end if;
 
 		-- Check package cache validity
-		if Package_B = null then
+		if not Is_Package_Cached then
 			raise Package_Cache_Exception;
 		end if;
 
@@ -156,19 +156,18 @@ package body Unpacker.Extract is
 				end case;
 
 				-- Handle compressed blocks
+				-- The actual function called is determined by config.ads
 				case Current_Block.Compression is
 					when None =>
 						Decompress_B (Decrypt_B'Range) := Decrypt_B;
 							-- Can be shorter if last block
 					when Old_Type => -- LZH, oftentimes. Requires old Oodle.
-						-- N.B. The function called depends on platform
 						Discard_Size := Config_Old_OodleLZ_Decompress (Decrypt_B'Address,
 							size_t (Current_Block.Size),
 							Decompress_B'Address,
 							size_t (BLOCK_SIZE),
 							0, 0, 0, 0, 0, 0, 0, 0, 0, 3);
 					when New_Type  => -- Unknown, uses new Oodle.
-						-- N.B. The function called depends on platform
 						Discard_Size := Config_New_OodleLZ_Decompress (Decrypt_B'Address,
 							size_t (Current_Block.Size),
 							Decompress_B'Address,
@@ -193,7 +192,7 @@ package body Unpacker.Extract is
 							Decompress_B (
 								Natural (E.Starting_Block_Offset) + 1
 								.. Natural (E.Starting_Block_Offset) + Copy_Size);
-						Current_Buffer_Offset := Current_Buffer_Offset + Copy_Size;
+						Current_Buffer_Offset := @ + Copy_Size;
 					end;
 				elsif Current_Block_ID = E.Last_Block then
 						Data_B (1 + Current_Buffer_Offset .. Natural (E.File_Size)) :=
@@ -202,11 +201,11 @@ package body Unpacker.Extract is
 					Data_B (1 + Current_Buffer_Offset
 						.. Current_Buffer_Offset + Natural (BLOCK_SIZE)) :=
 							Decompress_B (1 .. Natural (BLOCK_SIZE));
-					Current_Buffer_Offset := Current_Buffer_Offset + Natural (BLOCK_SIZE);
+					Current_Buffer_Offset := @ + Natural (BLOCK_SIZE);
 				end if;
 			end;
 
-			Current_Block_ID := Current_Block_ID + 1;
+			Current_Block_ID := @ + 1;
 		end loop;
 
 		if Supplemental_File then

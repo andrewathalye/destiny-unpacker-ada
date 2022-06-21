@@ -86,8 +86,8 @@ package body Unpacker.Package_File is
 			-- TODO Debug
 
 			-- Increment indices
-			File_Index := File_Index + SIZE;
-			Array_Index := Array_Index + 1;
+			File_Index := @ + SIZE;
+			Array_Index := @ + 1;
 
 		end loop;
 	end Read_Blocks;
@@ -104,6 +104,8 @@ package body Unpacker.Package_File is
 			C : Unsigned_32;
 			D : Unsigned_32;
 		end record;
+
+		SIZE : constant Unsigned_32 := Raw_Entry'Size / 8;
 
 		-- Big Endian Type
 		-- Note: C and D are flipped in this type
@@ -172,8 +174,8 @@ package body Unpacker.Package_File is
 			V (Array_Index) := E; -- Add Entry to array
 
 			-- Increment indices
-			File_Index := File_Index + 16;
-			Array_Index := Array_Index + 1;
+			File_Index := @ + SIZE;
+			Array_Index := @ + 1;
 
 			-- TODO Debug
 --			Text_IO.Put_Line (Raw_Entry'Image (R));

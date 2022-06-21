@@ -9,7 +9,7 @@ project Destiny_Unpacker is
 	OS : OS_Type := external ("os", "linux");
 
 	Common_Source_Dirs := ("src", "ext_src/spec");
-	for Main use ("main.adb");
+	for Main use ("unpacker_main.adb");
 	for Object_Dir use "obj/" & Mode;
 	for Exec_Dir use ".";
 
@@ -25,9 +25,9 @@ project Destiny_Unpacker is
 	package Builder is
 		case Mode is
 			when "dynamic" =>
-				for Executable ("main.adb") use "destinyunpacker";
+				for Executable ("unpacker_main.adb") use "destinyunpacker";
 			when "static" =>
-				for Executable ("main.adb") use "destinyunpacker_static";
+				for Executable ("unpacker_main.adb") use "destinyunpacker_static";
 		end case;
 	end Builder;
 
