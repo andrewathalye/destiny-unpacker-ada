@@ -54,10 +54,9 @@ Building from Source on Windows
 To build from source, you'll need GNAT FSF 12.1.0 or higher (from GCC). GPRBuild is also required.  
 GNAT GPL 2021 may also work, but I've begun to use Ada 2022 features so there may be some edge cases.  
 
-As always, please feel free to reach out if you need any help.  
+As always, please feel free to reach out if you need any help. This configuration may be difficult to achieve on Windows.    
 
-You'll need oo2core_3_win64.dll in the main directory alongside destiny_unpacker.gpr, as well as libcrypto-3-x64.dll in the ext_lib folder
-for the build to succeed.  
+You'll need oo2core_3_win64.dll and libcrypto-3-x64.dll in the main directory alongside destiny_unpacker.gpr for the build to succeed.  
 
 Run `gprbuild -Pdestinyunpacker -Xmode=static` to build the program. A dynamic build is not recommended for Windows because GNAT
 libraries are unlikely to be on your PATH.

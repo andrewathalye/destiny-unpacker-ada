@@ -11,7 +11,7 @@ library project OpenSSL is
 			for Library_Dir use "/usr/lib64";
 			for Library_Name use "crypto";
 		when "Windows_NT" =>
-			for Library_Dir use "../ext_lib";
+			for Library_Dir use "..";
 			for Library_Name use "libcrypto-3-x64";
 	end case;
 end OpenSSL;
