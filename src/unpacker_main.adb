@@ -50,7 +50,7 @@ procedure Unpacker_Main is
 	-- Exception
 	Invalid_Arguments : exception;
 begin -- Unpacker_Main
-	Put_Line ("Destiny Linux Unpacker v2.2");
+	Put_Line ("Destiny Linux Unpacker v2.3");
 
 	Options : loop
 		case Getopt ("v: x: t: h l") is

@@ -221,6 +221,12 @@ package body Unpacker.Package_File.Types is
 						null;
 				end case;
 		end case;
+
+		-- Check for zero-length files, which cannot be successfully extracted
+		if E.File_Size = 0 then
+			EI.Should_Extract := False;
+		end if;
+
 		return EI;
 	end Get_Info;
 
