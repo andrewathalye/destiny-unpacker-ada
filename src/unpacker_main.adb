@@ -8,6 +8,7 @@ with GNAT.Command_Line; use GNAT.Command_Line;
 
 with Unpacker.Worker; use Unpacker.Worker;
 with Unpacker.Util; use Unpacker.Util;
+with Unpacker.Package_File; use Unpacker.Package_File;
 with Unpacker.Package_File.Types; use Unpacker.Package_File.Types;
 with Unpacker; use Unpacker;
 
@@ -50,10 +51,10 @@ procedure Unpacker_Main is
 	-- Exception
 	Invalid_Arguments : exception;
 begin -- Unpacker_Main
-	Put_Line ("Destiny Linux Unpacker v2.3");
+	Put_Line ("Destiny Linux Unpacker v2.4");
 
 	Options : loop
-		case Getopt ("v: x: t: h l") is
+		case Getopt ("v: x: t: b: h l") is
 			when 'v' => -- Version
 				begin
 					Unpacker.Mode := Mode_Type'Value (Parameter);
@@ -75,6 +76,21 @@ begin -- Unpacker_Main
 				-- Add referenced type
 				begin
 					Optional_Types (Optional_Type'Value (Parameter)) := True;
+				exception
+					when Constraint_Error => raise Invalid_Arguments;
+				end;
+			when 'b' => -- Bypass Normal Extract and search for specific entry
+				-- Raise an error if already bypassing
+				if Unpacker.Worker.Bypass_Extract then
+					raise Invalid_Arguments;
+				else
+					Unpacker.Worker.Bypass_Extract := True;
+				end if;
+
+				-- Correct format is XXXX-XXXX
+				begin
+					Unpacker.Worker.Target_Package := From_Hex (Parameter (1 .. 4));
+					Unpacker.Worker.Target_Entry := From_Hex (Parameter (6 .. 9));
 				exception
 					when Constraint_Error => raise Invalid_Arguments;
 				end;
@@ -149,6 +165,9 @@ exception
 			& " possible using higher numbers.");
 		Put_Line ("-v: set the version of the game files to extract."
 			& " See the README for a list and the default.");
+		Put_Line ("-b: bypass the normal extract procedure and instead"
+			& " search for PACKAGE_ID-ENTRY_ID (both in hex)"
+			& " and print its reference.");
 		Put_Line ("-h: name by-reference files using little endian hex."
 			& " This was the default in Ginsor's Audio Tool, and is"
 			& " still used by some project files.");

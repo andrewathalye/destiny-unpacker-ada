@@ -2,7 +2,6 @@ with Ada.Text_IO; use Ada.Text_IO;
 with Ada.Streams; use Ada.Streams;
 with Ada.Directories; use Ada; use Ada.Directories;
 with Ada.Exceptions; use Ada.Exceptions;
-with Interfaces; use Interfaces;
 
 with Unpacker.Package_File; use Unpacker.Package_File;
 with Unpacker.Extract; use Unpacker.Extract;
@@ -36,6 +35,20 @@ package body Unpacker.Worker is
 		for E of EV loop
 			-- Get information about current Entry
 			EI := Get_Info (E, Language_ID);
+
+			-- If looking for a specific entry, then bypass normal procedure
+			-- This is generally used to identify new reference types
+			if Bypass_Extract then
+				-- If the target package and entry are being processed, print reference
+				if H.Package_ID = Target_Package
+					and Unsigned_16 (Entry_ID) = Target_Entry
+				then
+					Put_Line ("[Debug] Found target file with reference"
+						& Unsigned_32'Image (E.Reference));
+					return;
+				end if;
+				EI.Should_Extract := False; -- Do not extract
+			end if;
 
 			-- If should extract, read data and write to file
 			if EI.Should_Extract then

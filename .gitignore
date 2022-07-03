@@ -1,10 +1,11 @@
 ext_lib
 oo2core_3_win64.dll
 obj
-output*
-packages*
+output
+packages
 
 destinyunpacker
+destinyunpacker_static
 
 .build.ninja.swp
 .ninja_log

@@ -20,7 +20,7 @@ package Unpacker.Package_File is
 	-- Block Normalised Type
 	-- Cannot be read from Stream (not all versions have GCM)
 	type Compression_Type is (None, Old_Type, New_Type);
-	BLOCK_SIZE : constant Unsigned_32 := 16#40000#; -- Static size of data block
+	BLOCK_SIZE : constant := 16#40000#; -- Static size of data block
 
 	type Block is record
 		Offset : Unsigned_32;

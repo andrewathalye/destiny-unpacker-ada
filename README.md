@@ -77,7 +77,7 @@ Development mode produces smaller, faster executables, but they cannot be given 
 Reference
 ---------
 
->	Note: This program is for use for educational purposes only.
+>	Note: This program is for educational purposes only.
 >	RAD Game Tools, Epic Game Tools, etc. reserve the right to define the terms under which users may
 >	use Oodle and related software, to which they own the copyright.
 >	If unsure, you might consider purchasing a license to Oodle 2.9.
@@ -88,7 +88,7 @@ Reference
 Currently supported versions of the game are d1be (Destiny 1 Big Endian / PS3), d1 (Destiny 1 Little Endian / PS4),
 prebl (Destiny 2 before Beyond Light), and postbl (Destiny 2 after Beyond Light).  
 
-Currently available optional file formats are wem (raw audio), bnk (WWise composition format), usm (cutscene format), vox (voice line references), txt (string files and references), and unk (everything else).  
+Currently available optional file formats are wem (raw audio), bnk (WWise composition format), usm (cutscene format), vox (voice line references), txt (string files and references), dat (various metadata, including debug strings), and unk (everything else).  
 
 If you would like to decode string files, please use https://github.com/andrewathalye/destiny-string-tool, as these have a convoluted format.  
 If you need to convert WEM files to WAV, VGMStream should work quite well.  

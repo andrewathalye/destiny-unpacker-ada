@@ -5,22 +5,31 @@ package body Unpacker.Util is
 		'a', 'b', 'c', 'd', 'e', 'f');
 
 	-- Get Language ID (or "") from file name
+	-- File name format is generally PLA_NAME_PKID[_XX]_P.pkg,
+	-- where PLA is platform, NAME is a package name, PKID is
+	-- the Package ID, XX is the language, and P is the Patch ID
 	function Get_Language_ID (File_Name : String) return String is
 		type Language_Type is (En, Fr, De, It, Pn, Pt, Sp, Ru, Po, Cs, Ct, Mx, Ko);
 			-- Pn here means Jpn
 	begin
+		-- Not a language file if this is not the case
+		-- If both characters aren't '_', then it is neither a two-letter
+		-- nor three-letter language name.
+		if File_Name (File_Name'Last - 8) /= '_'
+		and File_Name (File_Name'Last - 9) /= '_'
+		then
+			return "";
+		end if;
+
+		-- Extract and return language value
 		case Language_Type'Value
 			(File_Name (File_Name'Last - 7 .. File_Name'Last - 6))
 		is
 			when Pn => -- Should really be jpn
 				return "jpn";
-			when others => -- Invalid values or any other issue will return "";
+			when others =>
 				return File_Name (File_Name'Last - 7 .. File_Name'Last - 6);
 		end case;
-	exception
-		when Constraint_Error =>
-			-- Invalid value, length, etc. - in any case should return ""
-			return "";
 	end Get_Language_ID;
 
 	-- Print Unsigned_16 as big endian hex string
@@ -31,6 +40,10 @@ package body Unpacker.Util is
 			Hex_Digits (Natural (Shift_Right (Num and 16#f0#, 4))),
 			Hex_Digits (Natural (Num and 16#f#))];
 	end Hex_String;
+
+	-- Return Unsigned_16 from big endian hex string
+	function From_Hex (Hex : String) return Unsigned_16 is
+		(Unsigned_16'Value ("16#" & Hex & "#"));
 
 	-- Print Unsigned_32 as little endian hex string
 	-- For compatibility with Ginsor Audio Tool names

@@ -15,7 +15,8 @@ package Unpacker.Package_File.Types is
 	end record;
 
 	-- Optional Types
-	type Optional_Type is (bnk, wem, usm, txt, vox, unk);
+	-- See package body for usage
+	type Optional_Type is (bnk, wem, usm, txt, vox, dat, unk);
 
 	-- Extract everything except unknown files by default
 	Optional_Types : array (Optional_Type) of Boolean := [unk => False,

@@ -3,7 +3,8 @@ package body Unpacker.Package_File.Types is
 	type Entry_Reference_Type is
 		(Unknown, String_Bank, String_Reference, String_Reference_Index,
 		Font_Reference, Load_Zone, Main_Model, Subfiles, Dynamic_Header,
-		Animation, Terrain, Material, Audio_Reference, Junk);
+		Animation, Terrain, Material, Audio_Reference, Metadata_Sound,
+		Metadata_Music, Junk);
 
 	-- Enumeration for known Entry Types
 	type Entry_Type_Type is (Unknown, Raw_Data, Font_File, Third_Party, Video,
@@ -52,6 +53,11 @@ package body Unpacker.Package_File.Types is
 				-- when 16#00000000# => return ANIMATION;
 				-- when 16#00000000# => return TERRAIN;
 				-- when 16#00000000# => return MATERIAL;
+				when 16#80808F49#
+					| 16#8080902D#
+					| 16#80806485#
+					| 16#80803D1F# => Metadata_Sound,
+				when 16#80809994# => Metadata_Music,
 				when 16#80808D54# => Audio_Reference, -- TODO: Test
 				when 16#FFFFFFFF# => Junk,
 				when others => Unknown),
@@ -69,7 +75,9 @@ package body Unpacker.Package_File.Types is
 				when 16#80806C81# => Terrain,
 				when 16#80806DAA# => Material,
 				when 16#808097B8# => Audio_Reference,
-				-- when 16#FFFFFFFF# => JUNK,
+				-- when 16#80800000# => Metadata_Sound, -- TODO: Find
+				when 16#808045EB# => Metadata_Music,
+				-- when 16#FFFFFFFF# => JUNK, -- TODO: Find
 				when others => Unknown));
 
 	function To_Type (T : Unsigned_8) return Entry_Type_Type is
@@ -215,10 +223,17 @@ package body Unpacker.Package_File.Types is
 						EI.Subdir := "vox"; -- For Voice
 						EI.Ext := "ref";
 						EI.Should_Extract := True and Optional_Types (vox);
+					when Metadata_Sound =>
+						EI.Subdir := "dat";
+						EI.Ext := "snd";
+						EI.Should_Extract := True and Optional_Types (dat);
+					when Metadata_Music =>
+						EI.Subdir := "dat";
+						EI.Ext := "mus";
+						EI.Should_Extract := True and Optional_Types (dat);
 					when Junk => null;
 					when others =>
 						EI.Should_Extract := Optional_Types (unk);
-						null;
 				end case;
 		end case;
 
