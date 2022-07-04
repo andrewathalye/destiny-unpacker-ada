@@ -180,6 +180,7 @@ package body Unpacker.Package_File.Types is
 							when Junk => null;
 								-- Some WEM entries in language packages contain no actual audio
 							when others =>
+								-- TODO: Figure out if there is a better way to handle this
 								if Language_ID'Length = 0 then -- Language audio can share References
 									if Use_Hex_Reference_LE then
 										EI.Name := By_Hex_Reference_LE;
@@ -192,13 +193,9 @@ package body Unpacker.Package_File.Types is
 								EI.Should_Extract := True and Optional_Types (wem);
 						end case;
 					when BNK_Index_Buffer =>
-						if Language_ID'Length = 0 then
-							-- Banks are not currently useful for language-specific audio
-							EI.Should_Extract := True and Optional_Types (bnk);
-						end if;
-
 						EI.Subdir := "bnk";
 						EI.Ext := "bnk";
+						EI.Should_Extract := True and Optional_Types (bnk);
 					when others => null;
 				end case;
 			when Video =>
