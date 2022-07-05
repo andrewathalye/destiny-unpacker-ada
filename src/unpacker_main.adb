@@ -45,28 +45,18 @@ procedure Unpacker_Main is
 	Package_Dir : String_Access := null;
 	Output_Dir : String_Access := null;
 	Avoid_Languages : Boolean := False;
+	Quiet_Mode : Boolean := False;
 
 	Worker_Threads : Positive := 1;
 
 	-- Exception
 	Invalid_Arguments : exception;
 begin -- Unpacker_Main
-	Put_Line ("Destiny Linux Unpacker v2.4");
+	Put_Line ("Destiny Linux Unpacker v2.5");
 
 	Options : loop
-		case Getopt ("v: x: t: b: h l") is
-			when 'v' => -- Version
-				begin
-					Unpacker.Mode := Mode_Type'Value (Parameter);
-				exception
-					when Constraint_Error => raise Invalid_Arguments;
-				end;
-			when 't' => -- Threads
-				begin
-					Worker_Threads := Positive'Value (Parameter);
-				exception
-					when Constraint_Error => raise Invalid_Arguments;
-				end;
+		case Getopt ("x: t: l v: h q e: r:") is
+			-- Performance Options
 			when 'x' => -- Optional Types
 				if not Optional_Types_Exclusive then
 					Optional_Types := [others => False];
@@ -79,28 +69,62 @@ begin -- Unpacker_Main
 				exception
 					when Constraint_Error => raise Invalid_Arguments;
 				end;
-			when 'b' => -- Bypass Normal Extract and search for specific entry
+			when 't' => -- Threads
+				begin
+					Worker_Threads := Positive'Value (Parameter);
+				exception
+					when Constraint_Error => raise Invalid_Arguments;
+				end;
+
+			when 'l' => -- Do not unpack language files
+				Avoid_Languages := True;
+
+			-- Configuration Options
+			when 'v' => -- Version
+				begin
+					Unpacker.Mode := Mode_Type'Value (Parameter);
+				exception
+					when Constraint_Error => raise Invalid_Arguments;
+				end;
+			when 'h' => -- Little Endian hex names for WEM files
+				Use_Hex_Reference_LE := True;
+			when 'q' => -- Quiet mode, disables all normal messages
+				Quiet_Mode := True;
+
+			-- Datamining Options (Bypass Extract)
+			when 'e' => -- Print information about a certain Entry
 				-- Raise an error if already bypassing
-				if Unpacker.Worker.Bypass_Extract then
+				if Bypass_Settings.Mode /= None then
 					raise Invalid_Arguments;
-				else
-					Unpacker.Worker.Bypass_Extract := True;
 				end if;
 
 				-- Correct format is XXXX-XXXX
 				begin
-					Unpacker.Worker.Target_Package := From_Hex (Parameter (1 .. 4));
-					Unpacker.Worker.Target_Entry := From_Hex (Parameter (6 .. 9));
+					Bypass_Settings := (Mode => From_Entry,
+						Target_Package => From_Hex (Parameter (1 .. 4)),
+						Target_Entry => From_Hex (Parameter (6 .. 9)),
+						others => <>);
 				exception
 					when Constraint_Error => raise Invalid_Arguments;
 				end;
-			when 'l' => -- Do not unpack language files
-				Avoid_Languages := True;
+			when 'r' => -- Print information about Entries with a certain Reference
+				-- Raise an error if already bypassing
+				if Bypass_Settings.Mode /= None then
+					raise Invalid_Arguments;
+				end if;
 
-			when 'h' => -- Little Endian hex names for WEM files
-				Use_Hex_Reference_LE := True;
+				-- Correct format is XXXXXXXX (4 bytes)
+				begin
+					Bypass_Settings := (Mode => From_Reference,
+						Target_Reference => From_Hex (Parameter),
+						others => <>);
+				exception
+					when Constraint_Error => raise Invalid_Arguments;
+				end;
 
-			when ASCII.NUL => -- Remaining non-arguments
+			-- Package Directory Name and Output Directory Name
+			-- These are non-arguments, so Getopt will pass ASCII.NUL
+			when ASCII.NUL =>
 				Package_Dir := new String'(Get_Argument);
 				Output_Dir := new String'(Get_Argument);
 				exit Options;
@@ -121,11 +145,6 @@ begin -- Unpacker_Main
 		return;
 	end if;
 
-	-- Create Output Dir if necessary
-	if not Exists (Output_Dir.all) then
-		Create_Directory (Output_Dir.all);
-	end if;
-
 	-- Create extract tasks
 	Create_Extract_Tasks (Worker_Threads);
 
@@ -134,12 +153,16 @@ begin -- Unpacker_Main
 	Process_Entries :
 		while More_Entries (SE) loop
 			Get_Next_Entry (SE, D);
+
+			-- Avoid languages and old patches if asked to
 			if Is_Latest_Patch_ID (Full_Name (D))
-			and -- Skip language files if directed to
-				not (Avoid_Languages and Get_Language_ID (Full_Name (D))'Length /= 0)
+				and not (Avoid_Languages and Get_Language_ID (Full_Name (D))'Length /= 0)
 			then
-				Put_Line ("[Info] Unpacking "
-					& Simple_Name (D));
+				if not Quiet_Mode then
+					Put_Line ("[Info] Unpacking "
+						& Simple_Name (D));
+				end if;
+
 				Open (F, In_File, Full_Name (D));
 				SA := Stream (F);
 				Unpack (Stream => SA,
@@ -155,7 +178,9 @@ exception
 		Put_Line ("Usage: "
 			& Command_Name
 			& " [OPTION] PACKAGE_DIR OUTPUT_DIR");
-		Put_Line ("Options:");
+		New_Line;
+
+		Put_Line ("PERFORMANCE OPTIONS:");
 		Put_Line ("-x: set the types of files to extract."
 			& " One file type may be specified per -x"
 			& " option provided. Please see the README"
@@ -163,15 +188,24 @@ exception
 		Put_Line ("-t: set the number of worker threads."
 			& " The default is one, but significant speedups are"
 			& " possible using higher numbers.");
+		Put_Line ("-l: do not extract language-specific entries.");
+		New_Line;
+
+		Put_Line ("CONFIGURATION OPTIONS:");
 		Put_Line ("-v: set the version of the game files to extract."
 			& " See the README for a list and the default.");
-		Put_Line ("-b: bypass the normal extract procedure and instead"
-			& " search for PACKAGE_ID-ENTRY_ID (both in hex)"
-			& " and print its reference.");
 		Put_Line ("-h: name by-reference files using little endian hex."
 			& " This was the default in Ginsor's Audio Tool, and is"
 			& " still used by some project files.");
-		Put_Line ("-l: do not extract language-specific entries.");
+		Put_Line ("-q: quiet mode. Do not output any non-error messages.");
+		New_Line;
+
+		Put_Line ("DATAMINING OPTIONS:");
+		Put_Line ("-e: search for PACKAGE_ID-ENTRY_ID (both in hex)"
+			& " and print information about it.");
+		Put_Line ("-r: search for REFERENCE (in hex) and print all entries"
+			& " containing it.");
+
 		return;
 	when E : Storage_Error =>
 		Put_Line (Standard_Error,

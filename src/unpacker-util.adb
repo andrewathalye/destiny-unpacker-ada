@@ -45,6 +45,10 @@ package body Unpacker.Util is
 	function From_Hex (Hex : String) return Unsigned_16 is
 		(Unsigned_16'Value ("16#" & Hex & "#"));
 
+	-- Return Unsigned_32 from big endian hex string
+	function From_Hex (Hex : String) return Unsigned_32 is
+		(Unsigned_32'Value ("16#" & Hex & "#"));
+
 	-- Print Unsigned_32 as little endian hex string
 	-- For compatibility with Ginsor Audio Tool names
 	function Hex_String_LE (Num : Unsigned_32) return String is

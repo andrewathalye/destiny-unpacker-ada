@@ -15,11 +15,14 @@ package body Unpacker.Extract is
 
 	-- Cache and Free Package Data
 	-- See specification for exact details
+	pragma Inline (Is_Package_Cached);
+	function Is_Package_Cached return Boolean is (Package_B /= null);
+
 	procedure Cache_Package (File_Name : String) is
 		In_F : Stream_IO.File_Type;
 		In_S : Stream_Access;
 	begin
-		if Package_B = null then
+		if not Is_Package_Cached then
 			Open (In_F, In_File, File_Name);
 			In_S := Stream (In_F);
 			Package_B := new Data_Array (1 .. Natural (Size (File_Name)));
@@ -30,11 +33,9 @@ package body Unpacker.Extract is
 		end if;
 	end Cache_Package;
 
-	function Is_Package_Cached return Boolean is (Package_B /= null);
-
 	procedure Free_Package is
 	begin
-		if Package_B /= null then
+		if Is_Package_Cached then
 			Free (Package_B);
 			Package_B := null;
 		else
@@ -90,6 +91,7 @@ package body Unpacker.Extract is
 			raise Package_Cache_Exception;
 		end if;
 
+		Process_Blocks :
 		while Current_Block_ID <= E.Last_Block loop
 			Current_Block := BV (Natural (Current_Block_ID) + 1); -- Load next block
 
@@ -206,7 +208,7 @@ package body Unpacker.Extract is
 			end;
 
 			Current_Block_ID := @ + 1;
-		end loop;
+		end loop Process_Blocks;
 
 		if Supplemental_File then
 			Close (Supp_F); -- Make sure extra Patch file is closed before returning

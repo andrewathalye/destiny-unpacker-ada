@@ -32,33 +32,25 @@ package body Unpacker.Worker is
 		end loop;
 
 		-- Loop over Entries in Array
+		Process_Entries :
 		for E of EV loop
 			-- Get information about current Entry
 			EI := Get_Info (E, Language_ID);
 
-			-- If looking for a specific entry, then bypass normal procedure
-			-- This is generally used to identify new reference types
-			if Bypass_Extract then
-				-- If the target package and entry are being processed, print reference
-				if H.Package_ID = Target_Package
-					and Unsigned_16 (Entry_ID) = Target_Entry
-				then
-					Put_Line ("[Debug] Found target file with reference"
-						& Unsigned_32'Image (E.Reference));
-					return;
-				end if;
-				EI.Should_Extract := False; -- Do not extract
-			end if;
-
 			-- If should extract, read data and write to file
 			if EI.Should_Extract then
-				-- Create output directory if necessary
-				if not Exists (Output_Dir & "/" & EI.Subdir & "/") then
-					Create_Directory (Output_Dir & "/" & EI.Subdir & "/");
-				end if;
-
 				-- Create language-specific output directory if necessary
 				if not Exists (Output_Dir & "/" & EI.Subdir & "/" & Language_ID) then
+					-- Create output subdirectory if necessary
+					if not Exists (Output_Dir & "/" & EI.Subdir & "/") then
+						-- Create output directory if necessary
+						if not Exists (Output_Dir) then
+							Create_Directory (Output_Dir);
+						end if;
+
+						Create_Directory (Output_Dir & "/" & EI.Subdir & "/");
+					end if;
+
 					Create_Directory (Output_Dir & "/" & EI.Subdir & "/" & Language_ID);
 				end if;
 
@@ -100,7 +92,7 @@ package body Unpacker.Worker is
 			end if;
 
 			Entry_ID := @ + 1;
-		end loop;
+		end loop Process_Entries;
 
 		-- Wait until all extraction tasks are complete
 		for I of Extract_Tasks.all loop
@@ -134,20 +126,53 @@ package body Unpacker.Worker is
 	is
 		-- Package Information
 		H : constant Header := Read_Header (Stream, Base_Name (File_Name));
-		E : Entry_Array (1 .. Natural (H.Entry_Table_Size));
-		B : aliased Block_Array (1 .. Natural (H.Block_Table_Size));
+		EV : Entry_Array (1 .. Natural (H.Entry_Table_Size));
+		BV : Block_Array (1 .. Natural (H.Block_Table_Size));
 	begin
 		Modify_Nonce (H); -- Only needed for Destiny 2
-		Read_Entries (Stream, File, E, H);
-		Read_Blocks (Stream, File, B, H);
+		Read_Entries (Stream, File, EV, H);
+		Read_Blocks (Stream, File, BV, H);
 
 		Close (File); -- No longer needed directly
 
-		Extract (File_Name,
-			Output_Dir,
-			EV => E,
-			BV => B,
-			H => H,
-			Language_ID => Get_Language_ID (File_Name));
+		-- List information about packages, rather than extracting,
+		-- if Bypass setting enabled. See Options for more information.
+		case Bypass_Settings.Mode is
+			when None => -- Extract as usual
+				Extract (File_Name, Output_Dir, EV, BV, H,
+					Language_ID => Get_Language_ID (File_Name));
+			when From_Reference => -- Print entries with a given Reference
+				declare
+					Entry_ID : Natural := 0;
+				begin
+					Reference_Bypass :
+					for E of EV loop
+						if E.Reference = Bypass_Settings.Target_Reference then
+							Put_Line (Hex_String (H.Package_ID)
+								& "-"
+								& Hex_String (Unsigned_16 (Entry_ID))
+								& ":" & Entry_Type'Image (E));
+							New_Line;
+						end if;
+
+						Entry_ID := @ + 1;
+					end loop Reference_Bypass;
+				end;
+			when From_Entry => -- Print information about a specific Entry
+				if H.Package_ID = Bypass_Settings.Target_Package then
+					declare
+						Entry_ID : Natural := 0;
+					begin
+						Entry_Bypass :
+						for E of EV loop
+							if Unsigned_16 (Entry_ID) = Bypass_Settings.Target_Entry then
+								Put_Line (Entry_Type'Image (E));
+							end if;
+
+							Entry_ID := @ + 1;
+						end loop Entry_Bypass;
+					end;
+				end if;
+		end case;
 	end Unpack;
 end Unpacker.Worker;

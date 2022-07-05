@@ -33,6 +33,7 @@ package Unpacker.Util is
 	function Hex_String (Num : Unsigned_16) return String;
 	function Hex_String_LE (Num : Unsigned_32) return String;
 	function From_Hex (Hex : String) return Unsigned_16;
+	function From_Hex (Hex : String) return Unsigned_32;
 	function Decimal_String (U : Unsigned_32) return String;
 	function Determine_Patch_Name (File_Name : String;
 		Patch_ID : Unsigned_16) return String;
